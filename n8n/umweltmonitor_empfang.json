@@ -1,0 +1,156 @@
+{
+  "name": "UmweltMonitor – Empfänger (HMAC-geschützt)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "umweltmonitor",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "um01-webhook",
+      "name": "ESP32 UmweltMonitor (POST, Raw Body)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-208, 48],
+      "webhookId": "umweltmonitor-webhook-id"
+    },
+    {
+      "parameters": {
+        "jsCode": "// HMAC-Verifikation + Feld-Mapping (ersetzt altes Set-Node)\n// PRINZIP: Raw-Body-String = exakt das, was der ESP32 signiert hat.\n// JSON.parse() nach erfolgreicher HMAC-Prüfung.\n\nconst crypto = require('crypto');\n\n// !!! DIESEN KEY DURCH DEINEN EIGENEN ERSETZEN !!!\n// Der gleiche Key muss im Gerät per Provisioning gesetzt werden (set hmac <key>)\nconst HMAC_KEY = 'CHANGE_ME_64_HEX_CHARS_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const rawBody = String(item.json.body);           // Raw Body String\n  const clientSig = (item.json.headers['x-signature'] || '').toLowerCase();\n\n  // --- HMAC-SHA256 prüfen ---\n  const hmac = crypto.createHmac('sha256', HMAC_KEY);\n  hmac.update(rawBody);\n  const expectedSig = hmac.digest('hex');\n\n  if (clientSig !== expectedSig) {\n    throw new Error(\n      'HMAC MISMATCH — Anfrage abgelehnt. ' +\n      'Client-Signatur: ' + clientSig.substring(0, 16) + '... ' +\n      'Erwartet: ' + expectedSig.substring(0, 16) + '...'\n    );\n  }\n\n  // --- Body parsen (nach bestandener HMAC-Prüfung) ---\n  const b = JSON.parse(rawBody);\n\n  // --- Mapping: alle 18 Gerätefelder + n8n-Timestamp + color-Split = 20 Spalten ---\n  results.push({\n    json: {\n      timestamp:          new Date().toISOString(),\n      device_id:          String(b.device_id || ''),\n      schema_version:     Number(b.schema_version || 0),\n      seq:                Number(b.seq || 0),\n      soil_moisture_raw:  Number(b.soil_moisture_raw),\n      soil_temp_c:        Number(b.soil_temp_c),\n      water_level_raw:    Number(b.water_level_raw),\n      rain:               Boolean(b.rain),\n      rain_intensity_raw: Number(b.rain_intensity_raw),\n      air_temp_c:         Number(b.air_temp_c),\n      humidity_pct:       Number(b.humidity_pct),\n      dewpoint_c:         b.dewpoint_c !== undefined ? Number(b.dewpoint_c) : null,\n      pressure_hpa:       Number(b.pressure_hpa),\n      uv_raw:             Number(b.uv_raw),\n      lux:                Number(b.lux),\n      color_r:            b.color_rgb ? Number(b.color_rgb[0]) : null,\n      color_g:            b.color_rgb ? Number(b.color_rgb[1]) : null,\n      color_b:            b.color_rgb ? Number(b.color_rgb[2]) : null,\n      noise_rel:          Number(b.noise_rel),\n      gas_raw:            b.gas_raw !== null && b.gas_raw !== undefined ? String(b.gas_raw) : ''\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "um02-code-hmac",
+      "name": "HMAC-Prüfung + Mapping",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [32, 48]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1LIMTv3GW8rqSMtCu2pLi0zJ6PCRrdQtvVMSLZsHvlXU",
+          "mode": "list",
+          "cachedResultName": "<SHEET_DOC>"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "kalletal_umweltmonitor",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp":          "={{ $json.timestamp }}",
+            "device_id":          "={{ $json.device_id }}",
+            "schema_version":     "={{ $json.schema_version }}",
+            "seq":                "={{ $json.seq }}",
+            "soil_moisture_raw":  "={{ $json.soil_moisture_raw }}",
+            "soil_temp_c":        "={{ $json.soil_temp_c }}",
+            "water_level_raw":    "={{ $json.water_level_raw }}",
+            "rain":               "={{ $json.rain }}",
+            "rain_intensity_raw": "={{ $json.rain_intensity_raw }}",
+            "air_temp_c":         "={{ $json.air_temp_c }}",
+            "humidity_pct":       "={{ $json.humidity_pct }}",
+            "dewpoint_c":         "={{ $json.dewpoint_c }}",
+            "pressure_hpa":       "={{ $json.pressure_hpa }}",
+            "uv_raw":             "={{ $json.uv_raw }}",
+            "lux":                "={{ $json.lux }}",
+            "color_r":            "={{ $json.color_r }}",
+            "color_g":            "={{ $json.color_g }}",
+            "color_b":            "={{ $json.color_b }}",
+            "noise_rel":          "={{ $json.noise_rel }}",
+            "gas_raw":            "={{ $json.gas_raw }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {"id": "timestamp",          "displayName": "timestamp",          "type": "string"},
+            {"id": "device_id",          "displayName": "device_id",          "type": "string"},
+            {"id": "schema_version",     "displayName": "schema_version",     "type": "number"},
+            {"id": "seq",                "displayName": "seq",                "type": "number"},
+            {"id": "soil_moisture_raw",  "displayName": "soil_moisture_raw",  "type": "number"},
+            {"id": "soil_temp_c",        "displayName": "soil_temp_c",        "type": "number"},
+            {"id": "water_level_raw",    "displayName": "water_level_raw",    "type": "number"},
+            {"id": "rain",               "displayName": "rain",               "type": "boolean"},
+            {"id": "rain_intensity_raw", "displayName": "rain_intensity_raw", "type": "number"},
+            {"id": "air_temp_c",         "displayName": "air_temp_c",         "type": "number"},
+            {"id": "humidity_pct",       "displayName": "humidity_pct",       "type": "number"},
+            {"id": "dewpoint_c",         "displayName": "dewpoint_c",         "type": "number"},
+            {"id": "pressure_hpa",       "displayName": "pressure_hpa",       "type": "number"},
+            {"id": "uv_raw",             "displayName": "uv_raw",             "type": "number"},
+            {"id": "lux",                "displayName": "lux",                "type": "number"},
+            {"id": "color_r",            "displayName": "color_r",            "type": "number"},
+            {"id": "color_g",            "displayName": "color_g",            "type": "number"},
+            {"id": "color_b",            "displayName": "color_b",            "type": "number"},
+            {"id": "noise_rel",          "displayName": "noise_rel",          "type": "number"},
+            {"id": "gas_raw",            "displayName": "gas_raw",            "type": "string"}
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "um03-sheets-vollstaendig",
+      "name": "Ziel 1: Alle Felder → kalletal_umweltmonitor",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [272, 48],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "JAcG32sPIOx0c8tU",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"ok\", timestamp: $json.timestamp } }}",
+        "options": {}
+      },
+      "id": "um06-respond",
+      "name": "Antwort OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [512, 48]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "ESP32 UmweltMonitor (POST, Raw Body)": {
+      "main": [
+        [
+          {"node": "HMAC-Prüfung + Mapping", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "HMAC-Prüfung + Mapping": {
+      "main": [
+        [
+          {"node": "Ziel 1: Alle Felder → kalletal_umweltmonitor", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Ziel 1: Alle Felder → kalletal_umweltmonitor": {
+      "main": [
+        [
+          {"node": "Antwort OK", "type": "main", "index": 0}
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2",
+  "meta": {
+    "instanceId": ""
+  },
+  "id": "",
+  "tags": [{"name": "umweltmonitor"}, {"name": "hmac"}]
+}

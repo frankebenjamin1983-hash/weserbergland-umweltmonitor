@@ -1,0 +1,145 @@
+<svg width="1500" height="980" viewBox="0 0 1500 980" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <rect x="0" y="0" width="1500" height="980" fill="#ffffff"/>
+  <style>
+    .lab{font-family:Consolas,monospace;font-size:9px;fill:#9a988f}
+    .labU{font-family:Consolas,monospace;font-size:9px;font-weight:700;fill:#f1efe8}
+    .ct{font-size:10px;font-weight:700;fill:#1b1b1b}
+    .pn{font-size:7.5px;fill:#555}
+    .rl{font-size:11px;font-weight:700}
+    .leg{font-size:10px;fill:#5a5a5a}
+    .t1{font-size:17px;font-weight:700;fill:#1b1b1b}
+    .t2{font-size:11px;fill:#5a5a5a}
+    .w{stroke-width:1.6;fill:none}
+  </style>
+  <text x="20" y="28" class="t1">Umweltmonitor-Basismodul — Schema (30-Pin NodeMCU): Breakout-Module, keine externen Widerstände</text>
+  <text x="20" y="47" class="t2">Alle Sensoren = Breakout-Boards → I²C-Pull-ups und DS18B20-Pull-up sind intern. ● = Verbindungspunkt</text>
+  <rect x="980" y="20" width="500" height="30" rx="5" fill="#1D9E75"/><text x="1000" y="40" font-size="15" font-weight="700" fill="#ffffff">AKTUELLE FASSUNG · Marker A7B3 · OHNE SGP40</text>
+
+  <!-- RAILS -->
+  <line class="w" stroke="#C77F0A" x1="55"  y1="290" x2="55"  y2="880"/><text x="40" y="285" class="rl" fill="#C77F0A">5V</text>
+  <line class="w" stroke="#D85A30" x1="85"  y1="90"  x2="85"  y2="880"/><text x="74" y="84"  class="rl" fill="#D85A30">3V3</text>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="90"  x2="115" y2="910"/><text x="103" y="928" class="rl" fill="#5F5E5A">GND</text>
+  <line class="w" stroke="#5F5E5A" x1="1385" y1="90" x2="1385" y2="910"/><text x="1372" y="928" class="rl" fill="#5F5E5A">GND</text>
+  <line class="w" stroke="#D85A30" x1="1415" y1="90" x2="1415" y2="880"/><text x="1404" y="84" class="rl" fill="#D85A30">3V3</text>
+  <line class="w" stroke="#D85A30" x1="85"  y1="90"  x2="1415" y2="90"/>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="910" x2="1385" y2="910"/>
+
+  <!-- ESP BOARD -->
+  <rect x="700" y="120" width="140" height="680" rx="10" fill="#2c2c2a"/>
+  <rect x="750" y="112" width="40" height="9" rx="3" fill="#5f5e5a"/>
+  <text x="770" y="816" text-anchor="middle" class="pn" fill="#888780">ESP32-D0WD NodeMCU (30 Pin)</text>
+  <rect x="692" y="136" width="8" height="8" fill="#6b6a64"/><text x="708" y="143" class="lab">EN</text>
+  <rect x="692" y="180" width="8" height="8" fill="#1D9E75"/><text x="708" y="187" class="labU">IO36</text>
+  <rect x="692" y="224" width="8" height="8" fill="#1D9E75"/><text x="708" y="231" class="labU">IO39</text>
+  <rect x="692" y="268" width="8" height="8" fill="#1D9E75"/><text x="708" y="275" class="labU">IO34</text>
+  <rect x="692" y="312" width="8" height="8" fill="#1D9E75"/><text x="708" y="319" class="labU">IO35</text>
+  <rect x="692" y="356" width="8" height="8" fill="#1D9E75"/><text x="708" y="363" class="labU">IO32</text>
+  <rect x="692" y="400" width="8" height="8" fill="#1D9E75"/><text x="708" y="407" class="labU">IO33</text>
+  <polyline class="w" stroke="#1D9E75" points="460,524 600,524 600,404 692,404"/><text x="604" y="418" class="pn" fill="#1D9E75">AO→IO33 (Intensität)</text>
+  <rect x="692" y="444" width="8" height="8" fill="#6b6a64"/><text x="708" y="451" class="lab">IO25</text>
+  <rect x="692" y="488" width="8" height="8" fill="#EF9F27"/><text x="708" y="495" class="labU">IO26</text>
+  <rect x="692" y="532" width="8" height="8" fill="#EF9F27"/><text x="708" y="539" class="labU">IO27</text>
+  <rect x="692" y="576" width="8" height="8" fill="#6b6a64"/><text x="708" y="583" class="lab">IO14</text>
+  <rect x="692" y="620" width="8" height="8" fill="#6b6a64"/><text x="708" y="627" class="lab">IO12</text>
+  <rect x="692" y="664" width="8" height="8" fill="#6b6a64"/><text x="708" y="671" class="lab">IO13</text>
+  <rect x="692" y="708" width="8" height="8" fill="#5F5E5A"/><text x="708" y="715" class="labU">GND</text>
+  <rect x="692" y="752" width="8" height="8" fill="#C77F0A"/><text x="708" y="759" class="labU">VIN</text>
+  <rect x="840" y="180" width="8" height="8" fill="#378ADD"/><text x="832" y="187" text-anchor="end" class="labU">IO22</text>
+  <rect x="840" y="312" width="8" height="8" fill="#378ADD"/><text x="832" y="319" text-anchor="end" class="labU">IO21</text>
+  <rect x="840" y="356" width="8" height="8" fill="#378ADD"/><text x="832" y="363" text-anchor="end" class="labU">IO19</text>
+  <rect x="840" y="400" width="8" height="8" fill="#378ADD"/><text x="832" y="407" text-anchor="end" class="labU">IO18</text>
+  <rect x="840" y="576" width="8" height="8" fill="#6b6a64"/><text x="832" y="583" text-anchor="end" class="lab">IO4 frei</text>
+  <rect x="840" y="708" width="8" height="8" fill="#5F5E5A"/><text x="832" y="715" text-anchor="end" class="labU">GND</text>
+  <rect x="840" y="752" width="8" height="8" fill="#D85A30"/><text x="832" y="759" text-anchor="end" class="labU">3V3</text>
+  <text x="844" y="143" class="lab">IO23</text><text x="844" y="231" class="lab">TX0</text><text x="844" y="275" class="lab">RX0</text>
+  <text x="844" y="451" class="lab">IO5</text><text x="844" y="495" class="lab">IO17</text><text x="844" y="539" class="lab">IO16</text>
+  <text x="844" y="627" class="lab">IO2</text><text x="844" y="671" class="lab">IO15</text>
+
+  <!-- BOARD POWER -->
+  <line class="w" stroke="#C77F0A" x1="692" y1="756" x2="55"  y2="756"/><circle cx="55" cy="756" r="2.6" fill="#C77F0A"/>
+  <line class="w" stroke="#5F5E5A" x1="692" y1="712" x2="115" y2="712"/><circle cx="115" cy="712" r="2.6" fill="#5F5E5A"/>
+  <line class="w" stroke="#D85A30" x1="848" y1="756" x2="1415" y2="756"/><circle cx="1415" cy="756" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="848" y1="712" x2="1385" y2="712"/><circle cx="1385" cy="712" r="2.6" fill="#5F5E5A"/>
+
+  <!-- LEFT MODULES -->
+  <rect x="250" y="166" width="210" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75"/><text x="258" y="180" class="ct">HW-390 Bodenfeuchte</text><text x="258" y="194" class="pn">AOUT · VCC · GND</text>
+  <line class="w" stroke="#1D9E75" x1="460" y1="184" x2="692" y2="184"/>
+  <line class="w" stroke="#D85A30" x1="85" y1="176" x2="250" y2="176"/><circle cx="85" cy="176" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="192" x2="250" y2="192"/><circle cx="115" cy="192" r="2.6" fill="#5F5E5A"/>
+
+  <rect x="250" y="210" width="210" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75"/><text x="258" y="224" class="ct">HW-038 Wasserstand</text><text x="258" y="238" class="pn">S · VCC · GND</text>
+  <line class="w" stroke="#1D9E75" x1="460" y1="228" x2="692" y2="228"/>
+  <line class="w" stroke="#D85A30" x1="85" y1="220" x2="250" y2="220"/><circle cx="85" cy="220" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="236" x2="250" y2="236"/><circle cx="115" cy="236" r="2.6" fill="#5F5E5A"/>
+
+  <rect x="250" y="254" width="210" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75"/><text x="258" y="268" class="ct">MAX9814 Schall</text><text x="258" y="282" class="pn">OUT · VDD · GND · GAIN · A/R(offen)</text>
+  <line class="w" stroke="#1D9E75" x1="460" y1="272" x2="692" y2="272"/>
+  <line class="w" stroke="#D85A30" x1="85" y1="262" x2="250" y2="262"/><circle cx="85" cy="262" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="278" x2="250" y2="278"/><circle cx="115" cy="278" r="2.6" fill="#5F5E5A"/>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="286" x2="250" y2="286"/><circle cx="115" cy="286" r="2.6" fill="#5F5E5A"/><text x="180" y="297" class="pn">GAIN→GND</text>
+
+  <rect x="250" y="298" width="210" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75"/><text x="258" y="312" class="ct">MiCS-5524 Gas (CO)</text><text x="258" y="326" class="pn">AO · EN · VCC(5V) · GND</text>
+  <line class="w" stroke="#C77F0A" x1="55" y1="306" x2="250" y2="306"/><circle cx="55" cy="306" r="2.6" fill="#C77F0A"/>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="324" x2="250" y2="324"/><circle cx="115" cy="324" r="2.6" fill="#5F5E5A"/>
+  <line class="w" stroke="#1D9E75" x1="460" y1="316" x2="692" y2="316"/>
+  <text x="470" y="338" class="pn">AO→IO35 (Teiler nur falls AO&gt;3,3V)</text>
+  <polyline class="w" stroke="#EF9F27" points="460,330 476,330 476,488 692,488"/><text x="482" y="486" class="pn" fill="#EF9F27">EN→IO26</text>
+
+  <rect x="250" y="342" width="210" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75"/><text x="258" y="356" class="ct">GUVA-S12SD UV</text><text x="258" y="370" class="pn">OUT · VCC · GND</text>
+  <line class="w" stroke="#1D9E75" x1="460" y1="360" x2="692" y2="360"/>
+  <line class="w" stroke="#D85A30" x1="85" y1="350" x2="250" y2="350"/><circle cx="85" cy="350" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="368" x2="250" y2="368"/><circle cx="115" cy="368" r="2.6" fill="#5F5E5A"/>
+
+  <rect x="250" y="514" width="210" height="34" rx="5" fill="#FAEEDA" stroke="#EF9F27"/><text x="258" y="528" class="ct">Raindrop Regen</text><text x="258" y="542" class="pn">DO→IO27 · AO→IO33 · VCC · GND</text>
+  <line class="w" stroke="#EF9F27" x1="460" y1="532" x2="692" y2="532"/>
+  <line class="w" stroke="#D85A30" x1="85" y1="522" x2="250" y2="522"/><circle cx="85" cy="522" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="115" y1="540" x2="250" y2="540"/><circle cx="115" cy="540" r="2.6" fill="#5F5E5A"/>
+
+  <!-- I2C-0 BUS (SCL x=1030 from IO22, SDA x=1050 from IO21) — keine Pull-ups (intern) -->
+  <line class="w" stroke="#378ADD" x1="848" y1="180" x2="1030" y2="180"/><line class="w" stroke="#378ADD" x1="1030" y1="180" x2="1030" y2="372"/><circle cx="1030" cy="180" r="2.6" fill="#378ADD"/>
+  <line class="w" stroke="#378ADD" x1="848" y1="312" x2="1050" y2="312"/><line class="w" stroke="#378ADD" x1="1050" y1="196" x2="1050" y2="372"/><circle cx="1050" cy="312" r="2.6" fill="#378ADD"/>
+  <text x="1014" y="192" class="pn" fill="#185FA5">SCL</text><text x="1040" y="192" class="pn" fill="#185FA5">SDA</text>
+
+  <rect x="1090" y="192" width="200" height="32" rx="5" fill="#E6F1FB" stroke="#378ADD"/><text x="1098" y="205" class="ct">AHT20+BMP280 Combo</text><text x="1098" y="218" class="pn">0x38 + 0x76 · SDA·SCL·VIN·GND</text>
+  <line class="w" stroke="#378ADD" x1="1030" y1="202" x2="1090" y2="202"/><circle cx="1030" cy="202" r="2.4" fill="#378ADD"/>
+  <line class="w" stroke="#378ADD" x1="1050" y1="214" x2="1090" y2="214"/><circle cx="1050" cy="214" r="2.4" fill="#378ADD"/>
+  <line class="w" stroke="#D85A30" x1="1290" y1="200" x2="1415" y2="200"/><circle cx="1415" cy="200" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="1290" y1="216" x2="1385" y2="216"/><circle cx="1385" cy="216" r="2.6" fill="#5F5E5A"/>
+
+  <rect x="1090" y="242" width="200" height="32" rx="5" fill="#E6F1FB" stroke="#378ADD"/><text x="1098" y="255" class="ct">TMP102 0x48 Bodentemp</text><text x="1098" y="268" class="pn">SDA·SCL·VIN·GND·ADD0→GND·ALT(offen)</text>
+  <line class="w" stroke="#378ADD" x1="1030" y1="252" x2="1090" y2="252"/><circle cx="1030" cy="252" r="2.4" fill="#378ADD"/>
+  <line class="w" stroke="#378ADD" x1="1050" y1="264" x2="1090" y2="264"/><circle cx="1050" cy="264" r="2.4" fill="#378ADD"/>
+  <line class="w" stroke="#D85A30" x1="1290" y1="250" x2="1415" y2="250"/><circle cx="1415" cy="250" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="1290" y1="266" x2="1385" y2="266"/><circle cx="1385" cy="266" r="2.6" fill="#5F5E5A"/>
+
+  <rect x="1090" y="292" width="200" height="38" rx="5" fill="#E6F1FB" stroke="#378ADD"/><text x="1098" y="305" class="ct">TCS34725 0x29 Farbe</text><text x="1098" y="318" class="pn">SDA·SCL·VCC·GND·LED→GND·INT(offen)</text>
+  <line class="w" stroke="#378ADD" x1="1030" y1="302" x2="1090" y2="302"/><circle cx="1030" cy="302" r="2.4" fill="#378ADD"/>
+  <line class="w" stroke="#378ADD" x1="1050" y1="314" x2="1090" y2="314"/><circle cx="1050" cy="314" r="2.4" fill="#378ADD"/>
+  <line class="w" stroke="#D85A30" x1="1290" y1="300" x2="1415" y2="300"/><circle cx="1415" cy="300" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="1290" y1="316" x2="1385" y2="316"/><circle cx="1385" cy="316" r="2.6" fill="#5F5E5A"/>
+  <line class="w" stroke="#5F5E5A" x1="1290" y1="324" x2="1385" y2="324"/><circle cx="1385" cy="324" r="2.6" fill="#5F5E5A"/>
+
+  <!-- (an dieser Stelle war SGP40 - entfernt, nicht vorhanden) -->
+
+  <!-- I2C-1 TSL2591 — keine Pull-ups (intern) -->
+  <line class="w" stroke="#378ADD" x1="848" y1="356" x2="980" y2="356"/><line class="w" stroke="#378ADD" x1="980" y1="356" x2="980" y2="462"/><circle cx="980" cy="356" r="2.6" fill="#378ADD"/>
+  <line class="w" stroke="#378ADD" x1="848" y1="400" x2="958" y2="400"/><line class="w" stroke="#378ADD" x1="958" y1="400" x2="958" y2="474"/><circle cx="958" cy="400" r="2.6" fill="#378ADD"/>
+  <rect x="1090" y="452" width="200" height="38" rx="5" fill="#E6F1FB" stroke="#378ADD"/><text x="1098" y="465" class="ct">TSL2591 0x29 Lux (Bus 1)</text><text x="1098" y="478" class="pn">SDA·SCL·VIN·GND·INT(offen)</text>
+  <line class="w" stroke="#378ADD" x1="980" y1="462" x2="1090" y2="462"/>
+  <line class="w" stroke="#378ADD" x1="958" y1="474" x2="1090" y2="474"/>
+  <line class="w" stroke="#D85A30" x1="1290" y1="460" x2="1415" y2="460"/><circle cx="1415" cy="460" r="2.6" fill="#D85A30"/>
+  <line class="w" stroke="#5F5E5A" x1="1290" y1="478" x2="1385" y2="478"/><circle cx="1385" cy="478" r="2.6" fill="#5F5E5A"/>
+
+  <!-- DS18B20 entfernt (existiert nicht). Bodentemp = TMP102 auf I²C-0 (siehe oben). -->
+  <text x="1090" y="576" class="pn" fill="#9a988f">(Bodentemp jetzt TMP102 auf I²C-0 · DS18B20 entfernt)</text>
+
+  <!-- LEGEND -->
+  <rect x="20" y="940" width="12" height="12" rx="3" fill="#E1F5EE" stroke="#1D9E75"/><text x="37" y="950" class="leg">Analog</text>
+  <rect x="95" y="940" width="12" height="12" rx="3" fill="#E6F1FB" stroke="#378ADD"/><text x="112" y="950" class="leg">I²C</text>
+  <rect x="150" y="940" width="12" height="12" rx="3" fill="#FAEEDA" stroke="#EF9F27"/><text x="167" y="950" class="leg">Digital/1-Wire</text>
+  <line x1="270" y1="946" x2="292" y2="946" class="w" stroke="#D85A30"/><text x="297" y="950" class="leg">3V3</text>
+  <line x1="335" y1="946" x2="357" y2="946" class="w" stroke="#C77F0A"/><text x="362" y="950" class="leg">5V</text>
+  <line x1="392" y1="946" x2="414" y2="946" class="w" stroke="#5F5E5A"/><text x="419" y="950" class="leg">GND</text>
+  <circle cx="470" cy="946" r="2.6" fill="#333"/><text x="480" y="950" class="leg">Verbindungspunkt</text>
+  <text x="610" y="950" class="leg" font-style="italic">Breakout-Module → Pull-ups intern · VIN←5V Netzteil · I²C-VCC=3,3V · TX0/RX0 frei</text>
+</svg>

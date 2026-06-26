@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>UmweltMonitor — Panel (Stufe 1a)</title>
+<link rel="icon" href="umweltmonitor.ico">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root{ --bg:#0c0f14; --panel:#141a22; --panel2:#1b232e; --line:#2a3542; --txt:#e8eef4; --dim:#8aa0b4; --roh:#caa15a; --ok:#39d98a; --warn:#ff5d5d; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 "Segoe UI",system-ui,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  header h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.3px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px currentColor}
+  .dot.on{background:var(--ok)}
+  header .meta{color:var(--dim);font-size:12px}
+  header .spacer{flex:1}
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:7px 11px;cursor:pointer;font-size:13px}
+  button:hover{border-color:#3d4f60}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  main{padding:16px;display:flex;flex-direction:column;gap:16px}
+  .rings{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+  .ring{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;position:relative}
+  .ring .lbl{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  .ring .val{font-size:30px;font-weight:700;margin-top:2px}
+  .ring .un{font-size:14px;color:var(--dim);font-weight:400}
+  .ring svg{display:block;margin:6px auto 0}
+  .center{background:linear-gradient(180deg,#15202b,#101820);border:1px solid var(--line);border-radius:12px;padding:14px 18px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .center .big{font-size:26px;font-weight:700}
+  .center .k{color:var(--dim);font-size:12px;text-transform:uppercase}
+  .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.5px;padding:1px 6px;border-radius:4px;background:#3a2e12;color:var(--roh);border:1px solid #5a4516;vertical-align:middle}
+  .badge.cal{background:#0f2a1d;color:var(--ok);border-color:#1c5238}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  .tile .t-h{display:flex;justify-content:space-between;align-items:center;color:var(--dim);font-size:11px;text-transform:uppercase}
+  .tile .t-v{font-size:22px;font-weight:700;margin-top:3px}
+  .tile .t-n{color:var(--dim);font-size:11px;margin-top:2px;min-height:14px}
+  .tile.roh{border-color:#4a3a17}
+  .spark{margin-top:6px}
+  .swatch{width:100%;height:26px;border-radius:5px;border:1px solid var(--line);margin-top:6px}
+  .foot{color:var(--dim);font-size:12px;padding:0 16px 20px}
+  .empty{color:var(--dim);font-style:italic}
+  textarea{width:100%;height:60px;background:#0a0e13;color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:8px;font-family:Consolas,monospace;font-size:12px;display:none}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="dot"></span>
+  <h1>UmweltMonitor · Panel <span style="color:var(--dim);font-weight:400">Stufe 1a</span></h1>
+  <span class="meta" id="status">getrennt</span>
+  <span class="spacer"></span>
+  <span class="meta" id="meta">seq — · n=0 · verworfen 0</span>
+  <span class="meta" id="clock"></span>
+</header>
+
+<div class="controls">
+  <button id="btnConnect">🔌 Web-Serial verbinden (COM)</button>
+  <button id="btnWlan">📡 WLAN verbinden</button>
+  <button id="btnDisconnect" disabled>Trennen</button>
+  <button id="btnDemo">▶ Demo</button>
+  <button id="btnPaste">📋 JSON einfügen</button>
+  <button id="btnCsv">⬇ CSV</button>
+  <button id="btnJson">⬇ JSON</button>
+  <button id="btnClear">🗑 Leeren</button>
+  <span class="meta" id="serialHint" style="align-self:center"></span>
+</div>
+<div style="padding:0 16px"><textarea id="pasteArea" placeholder='{"device_id":"...","air_temp_c":..., ...}  — eine JSON-Zeile, Enter zum Übernehmen'></textarea></div>
+
+<main>
+  <div class="rings" id="rings"></div>
+
+  <div class="center" id="center">
+    <div><div class="k">Taupunkt <span class="badge cal">KALIBRIERT</span></div><div class="big" id="cDew">—</div></div>
+    <div><div class="k">Spread T − T<sub>d</sub></div><div class="big" id="cSpread">—</div></div>
+    <div><div class="k">abs. Feuchte</div><div class="big" id="cAbs">—</div></div>
+    <div style="flex:1;min-width:220px"><div class="k">Kondens-/Schimmelrisiko</div><div id="cRisk" style="font-weight:600">—</div></div>
+  </div>
+
+  <div class="center" id="noiseLive">
+    <div style="min-width:130px"><div class="k">Lärm LIVE <span class="badge">ROH · ~5 Hz</span></div><div class="big" id="nLiveVal">—</div></div>
+    <div style="flex:1;min-width:220px">
+      <div style="background:#0a0e13;border:1px solid var(--line);border-radius:6px;height:18px;overflow:hidden">
+        <div id="nLiveBar" style="height:100%;width:0%;background:linear-gradient(90deg,#39d98a,#ffb341,#ff5d5d);transition:width .12s"></div>
+      </div>
+      <div id="nLiveSpark" style="margin-top:6px"></div>
+    </div>
+    <div><div class="k" id="nLivePeak">Peak —</div></div>
+  </div>
+
+  <div class="center" id="lightLive">
+    <div style="min-width:130px"><div class="k">Licht LIVE <span class="badge cal">lux · ~2 Hz</span></div><div class="big" id="lLux">—</div></div>
+    <div style="flex:1;min-width:200px">
+      <div style="background:#0a0e13;border:1px solid var(--line);border-radius:6px;height:18px;overflow:hidden">
+        <div id="lLuxBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3a4a1a,#ffd24a,#fff7d6);transition:width .2s"></div>
+      </div>
+      <div id="lLuxSpark" style="margin-top:6px"></div>
+    </div>
+    <div style="min-width:80px"><div class="k">UV <span class="badge">ROH</span></div><div class="big" id="lUv">—</div></div>
+    <div style="min-width:110px"><div class="k">Farbe live</div><div class="swatch" id="lColor" style="margin-top:4px"></div></div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+</main>
+
+<div class="foot" id="foot"></div>
+
+<script>
+"use strict";
+/* ---------- Datenschicht (klar getrennt von der Visualisierung; Jupyter-Brücke) ---------- */
+const MAX_RECORDS = 1500;                 // ~24h @ 1/min
+const records = [];                       // [{recv_ms, recv_iso, ...geräte-felder}]
+let badLines = 0;
+
+const FIELD_ORDER = ["recv_iso","device_id","schema_version","timestamp","seq",
+  "soil_moisture_raw","soil_temp_c","water_level_raw","rain","rain_intensity_raw",
+  "air_temp_c","humidity_pct","dewpoint_c","pressure_hpa","uv_raw","lux","color_rgb","noise_rel","gas_raw"];
+
+function addRecord(obj){
+  const rec = Object.assign({ recv_ms: Date.now(), recv_iso: new Date().toISOString() }, obj);
+  records.push(rec);
+  if (records.length > MAX_RECORDS) records.shift();
+  render();
+}
+function series(key, n=60){
+  return records.slice(-n).map(r=>r[key]).filter(v=>typeof v==="number" && isFinite(v));
+}
+function latest(){ return records.length ? records[records.length-1] : null; }
+
+/* abgeleitete Größen (wissenschaftlich; hängen an air_temp/humidity = eigenerwärmungs-verzerrt) */
+function absHumidity(T,RH){ if(!isFinite(T)||!isFinite(RH)) return null;
+  return 6.112*Math.exp(17.67*T/(T+243.5))*RH*2.1674/(273.15+T); }   // g/m³
+
+/* Echtzeit-Lärm: schneller Serial-Stream "N:<rms>" (~5 Hz). Nur live, NICHT in records. */
+const NOISE_FAST_MAX=120, NOISE_SCALE=600;   // ~24 s @ 5 Hz; Anzeige-Skala (rel)
+const noiseFast=[]; let noisePeak=0, noisePeakT=0;
+function noiseLive(v){
+  noiseFast.push(v); if(noiseFast.length>NOISE_FAST_MAX) noiseFast.shift();
+  const now=Date.now();
+  if(v>=noisePeak || now-noisePeakT>5000){ noisePeak=v; noisePeakT=now; }   // 5-s-Peak-Hold
+  renderNoise();
+}
+function renderNoise(){
+  const v=noiseFast.length?noiseFast[noiseFast.length-1]:null;
+  const val=document.getElementById('nLiveVal'); if(val) val.innerHTML=(v!=null?v.toFixed(0):"—")+'<span class="un" style="font-size:13px;color:var(--dim)"> rel</span>';
+  const bar=document.getElementById('nLiveBar'); if(bar) bar.style.width=(v!=null?Math.min(100,v/NOISE_SCALE*100):0).toFixed(0)+"%";
+  const pk=document.getElementById('nLivePeak'); if(pk) pk.textContent="Peak "+(noisePeak||0).toFixed(0);
+  const sp=document.getElementById('nLiveSpark'); if(sp) sp.innerHTML=sparkSVG(noiseFast,0,NOISE_SCALE,"#ff9f43");
+}
+
+/* Echtzeit-Licht: schneller Serial-Stream "L:<lux>,<uv>,<r>,<g>,<b>" (~2 Hz). Nur live, NICHT in records. */
+const LUX_FAST_MAX=120, LUX_SCALE=2000;
+const luxFast=[];
+function lightLive(lux,uv,r,g,b){
+  const okLux = isFinite(lux) && lux>=0;
+  if(okLux){ luxFast.push(lux); if(luxFast.length>LUX_FAST_MAX) luxFast.shift(); }
+  const ll=document.getElementById('lLux'); if(ll) ll.innerHTML=(okLux?lux.toFixed(0):"—")+'<span class="un" style="font-size:13px;color:var(--dim)"> lx</span>';
+  const lb=document.getElementById('lLuxBar'); if(lb) lb.style.width=(okLux?Math.min(100,lux/LUX_SCALE*100):0).toFixed(0)+"%";
+  const ls=document.getElementById('lLuxSpark'); if(ls) ls.innerHTML=sparkSVG(luxFast,0,LUX_SCALE,"#ffd24a");
+  const lu=document.getElementById('lUv'); if(lu) lu.textContent=isFinite(uv)?String(uv):"—";
+  const lc=document.getElementById('lColor'); if(lc){ const m=Math.max(1,r,g,b),s=x=>Math.round(Math.min(255,x/m*255)); lc.style.background=`rgb(${s(r)},${s(g)},${s(b)})`; }
+}
+function renderLight(){ lightLive(NaN,NaN,0,0,0); }
+
+/* ---------- Feld-Definition ---------- */
+const RINGS = [
+  {k:"air_temp_c",  lbl:"Lufttemp",   un:"°C",  min:-10,max:45, col:"#ff7043", dec:1},
+  {k:"humidity_pct",lbl:"Luftfeuchte",un:"%",   min:0,  max:100,col:"#42a5f5", dec:1},
+  {k:"dewpoint_c",  lbl:"Taupunkt",   un:"°C",  min:-10,max:30, col:"#26c6da", dec:1},
+  {k:"pressure_hpa",lbl:"Druck",      un:"hPa", min:950,max:1050,col:"#ab47bc",dec:1},
+];
+const TILES = [
+  {k:"lux",               lbl:"Helligkeit",  un:"lx",  cal:true,  dec:0,  min:0,max:2000},
+  {k:"soil_temp_c",       lbl:"Bodentemp",   un:"°C",  cal:true,  dec:2,  min:-10,max:45},
+  {k:"soil_moisture_raw", lbl:"Bodenfeuchte",un:"",    cal:false, dec:0,  min:0,max:4095},
+  {k:"water_level_raw",   lbl:"Wasserstand", un:"",    cal:false, dec:0,  min:0,max:4095},
+  {k:"rain_intensity_raw",lbl:"Regen-Int.",  un:"",    cal:false, dec:0,  min:0,max:4095, note:"4095 = trocken (invertiert)"},
+  {k:"uv_raw",            lbl:"UV",          un:"",    cal:false, dec:0,  min:0,max:4095},
+  {k:"noise_rel",         lbl:"Lärm",        un:"rel", cal:false, dec:1,  min:0,max:1000},
+  {k:"gas_raw",           lbl:"Gas (MiCS)",  un:"",    cal:false, dec:0,  min:0,max:4095, note:"null = Warmup"},
+];
+
+/* ---------- Visualisierung ---------- */
+const fmt=(v,dec)=> (typeof v==="number"&&isFinite(v)) ? v.toFixed(dec) : "—";
+const R=52, C=2*Math.PI*R;
+function ringSVG(frac,col){ const d=Math.max(0,Math.min(1,frac))*C;
+  return `<svg width="120" height="120" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="${R}" fill="none" stroke="#26313d" stroke-width="10"/>
+    <circle cx="60" cy="60" r="${R}" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round"
+      stroke-dasharray="${d.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/></svg>`; }
+function sparkSVG(vals,min,max,col="#5b7488"){
+  if(vals.length<2) return `<svg class="spark" width="100%" height="26"></svg>`;
+  const lo=Math.min(min,...vals), hi=Math.max(max,...vals), span=(hi-lo)||1, W=100, H=26;
+  const pts=vals.map((v,i)=>`${(i/(vals.length-1)*W).toFixed(1)},${(H-2-((v-lo)/span)*(H-4)).toFixed(1)}`).join(" ");
+  return `<svg class="spark" width="100%" height="26" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5"/></svg>`; }
+
+function buildStatic(){
+  document.getElementById("rings").innerHTML = RINGS.map(r=>`
+    <div class="ring"><div class="lbl">${r.lbl}</div>
+      <div class="val" id="rv_${r.k}">—<span class="un"> ${r.un}</span></div>
+      <div id="rg_${r.k}">${ringSVG(0,r.col)}</div>
+      <div id="rs_${r.k}"></div></div>`).join("");
+  document.getElementById("tiles").innerHTML = TILES.map(t=>`
+    <div class="tile ${t.cal?"":"roh"}">
+      <div class="t-h"><span>${t.lbl}</span><span class="badge ${t.cal?"cal":""}">${t.cal?"KAL":"ROH"}</span></div>
+      <div class="t-v" id="tv_${t.k}">—<span class="un" style="font-size:12px;color:var(--dim)"> ${t.un}</span></div>
+      <div class="t-n">${t.note||""}</div>
+      <div id="ts_${t.k}"></div></div>`).join("")
+    + `<div class="tile"><div class="t-h"><span>Regen</span><span class="badge cal">BOOL</span></div>
+        <div class="t-v" id="tv_rain">—</div><div class="t-n"></div></div>
+       <div class="tile roh"><div class="t-h"><span>Farbe (TCS)</span><span class="badge">ROH</span></div>
+        <div class="swatch" id="tv_color"></div><div class="t-n" id="tn_color"></div></div>`;
+}
+
+function render(){
+  const r = latest();
+  // Meta
+  document.getElementById("meta").textContent =
+    `seq ${r&&r.seq!=null?r.seq:"—"} · n=${records.length} · verworfen ${badLines}`;
+  if(!r) return;
+  // Ringe
+  for(const g of RINGS){ const v=r[g.k];
+    document.getElementById("rv_"+g.k).innerHTML = `${fmt(v,g.dec)}<span class="un"> ${g.un}</span>`;
+    const frac = typeof v==="number"&&isFinite(v) ? (v-g.min)/(g.max-g.min) : 0;
+    document.getElementById("rg_"+g.k).innerHTML = ringSVG(frac,g.col);
+    document.getElementById("rs_"+g.k).innerHTML = sparkSVG(series(g.k),g.min,g.max,g.col);
+  }
+  // Zentrum
+  const T=r.air_temp_c, Td=r.dewpoint_c, RH=r.humidity_pct;
+  document.getElementById("cDew").textContent = fmt(Td,1)+" °C";
+  const spread = (isFinite(T)&&isFinite(Td)) ? T-Td : null;
+  document.getElementById("cSpread").textContent = spread!=null ? fmt(spread,1)+" K" : "—";
+  const ah = absHumidity(T,RH);
+  document.getElementById("cAbs").textContent = ah!=null ? fmt(ah,1)+" g/m³" : "—";
+  const risk = document.getElementById("cRisk");
+  if(spread==null){ risk.textContent="—"; risk.style.color="var(--dim)"; }
+  else if(spread<2){ risk.textContent="HOCH — Spread < 2 K, Kondensation nahe"; risk.style.color="var(--warn)"; }
+  else if(spread<5){ risk.textContent="erhöht — Spread < 5 K"; risk.style.color="var(--roh)"; }
+  else { risk.textContent="gering"; risk.style.color="var(--ok)"; }
+  // Tiles
+  for(const t of TILES){ const v=r[t.k];
+    document.getElementById("tv_"+t.k).innerHTML = `${fmt(v,t.dec)}<span class="un" style="font-size:12px;color:var(--dim)"> ${t.un}</span>`;
+    document.getElementById("ts_"+t.k).innerHTML = sparkSVG(series(t.k),t.min,t.max,t.cal?"#5b7488":"#8a6d33");
+  }
+  document.getElementById("tv_rain").textContent = (r.rain===true?"JA ☔":(r.rain===false?"nein":"—"));
+  const c=r.color_rgb;
+  if(Array.isArray(c)&&c.length===3){
+    const m=Math.max(1,c[0],c[1],c[2]); const s=x=>Math.round(Math.min(255,x/m*255));
+    document.getElementById("tv_color").style.background=`rgb(${s(c[0])},${s(c[1])},${s(c[2])})`;
+    document.getElementById("tn_color").textContent=`[${c.join(", ")}] (roh, normiert)`;
+  }
+  // Footer / ehrliche Leerzustände
+  const f=document.getElementById("foot");
+  if(records.length<30){
+    f.innerHTML=`<span class="empty">Trends/Statistik: zu wenig Daten (n=${records.length}, brauche ≥30). Korrelations-Ansicht kommt in Stufe 1b.</span> · letzte Zeile empfangen ${r.recv_iso}`;
+  } else {
+    const tser=series("air_temp_c",records.length);
+    const tmin=Math.min(...tser).toFixed(1), tmax=Math.max(...tser).toFixed(1);
+    f.innerHTML=`n=${records.length} Records · Lufttemp Bereich ${tmin}…${tmax} °C · letzte Zeile ${r.recv_iso} · roh-Kanäle sind unkalibriert · Korrelationen = Stufe 1b`;
+  }
+}
+
+/* ---------- Eingabe: Web Serial ---------- */
+let port=null, reader=null, keepReading=false, demoTimer=null;
+function setConnected(on,info){
+  document.getElementById("dot").classList.toggle("on",on);
+  document.getElementById("status").textContent = on ? ("verbunden"+(info?" · "+info:"")) : "getrennt";
+  document.getElementById("btnConnect").disabled=on;
+  document.getElementById("btnDisconnect").disabled=!on;
+}
+function handleLine(line){
+  if(!line) return;
+  if(line.startsWith("N:")){ const v=parseFloat(line.slice(2)); if(isFinite(v)) noiseLive(v); return; }  // Echtzeit-Lärm
+  if(line.startsWith("L:")){ const p=line.slice(2).split(","); if(p.length>=5) lightLive(parseFloat(p[0]),parseInt(p[1]),parseInt(p[2]),parseInt(p[3]),parseInt(p[4])); return; }  // Echtzeit-Licht
+  if(line[0]!=="{"){ return; }                     // Banner/CK*/FEHLER ignorieren
+  try{ const o=JSON.parse(line); addRecord(o); }
+  catch(e){ badLines++; render(); }                // sah aus wie JSON, war kaputt
+}
+async function connect(){
+  if(!("serial" in navigator)){ alert("Web Serial nicht verfügbar — Chrome/Edge nutzen, und COM8 darf nicht von einem anderen Programm belegt sein."); return; }
+  try{
+    port = await navigator.serial.requestPort();
+    await port.open({baudRate:115200});
+    setConnected(true); keepReading=true;
+    const dec=new TextDecoderStream();
+    port.readable.pipeTo(dec.writable).catch(()=>{});
+    reader=dec.readable.getReader();
+    let buf="";
+    while(keepReading){
+      const {value,done}=await reader.read();
+      if(done) break;
+      buf+=value; let nl;
+      while((nl=buf.indexOf("\n"))>=0){ handleLine(buf.slice(0,nl).trim()); buf=buf.slice(nl+1); }
+    }
+  }catch(e){ document.getElementById("status").textContent="Fehler: "+e.message; }
+  finally{ setConnected(false); }
+}
+async function disconnect(){
+  keepReading=false;
+  try{ if(reader){ await reader.cancel(); reader.releaseLock(); } }catch(e){}
+  try{ if(port){ await port.close(); } }catch(e){}
+  port=null; setConnected(false);
+}
+
+/* ---------- Eingabe: WLAN (Server-Sent Events vom Gerät) ---------- */
+let es=null, esHost=null, esLastData=0, esReconnects=0, esWatchdog=null, esHealth=null, esMaxGap=0, esConnStart=0;
+function wlanCleanup(){
+  if(es){ try{es.close()}catch(e){} es=null; }
+  if(esWatchdog){ clearInterval(esWatchdog); esWatchdog=null; }
+  if(esHealth){ clearInterval(esHealth); esHealth=null; }
+}
+function wlanOpen(){                                  // (Neu-)Aufbau der EventSource
+  if(es){ try{es.close()}catch(e){} }
+  es = new EventSource("http://"+esHost+"/");
+  es.onopen    = ()=>{ document.getElementById("dot").classList.add("on"); };
+  es.onmessage = e=>{ const g=Date.now()-esLastData; if(esLastData&&g>esMaxGap) esMaxGap=g; esLastData=Date.now();
+                      document.getElementById("dot").classList.add("on"); handleLine((e.data||"").trim()); };
+  es.onerror   = ()=>{ document.getElementById("dot").classList.remove("on"); };   // EventSource reconnectet selbst; Watchdog fängt Hänger ab
+}
+function connectWlan(){
+  const host = prompt("Geräte-Adresse im WLAN (IP oder Name):", esHost||"umweltmonitor.local");
+  if(!host) return;
+  wlanCleanup();
+  esHost=host; esLastData=Date.now(); esReconnects=0; esMaxGap=0; esConnStart=Date.now();
+  try{
+    wlanOpen();
+    document.getElementById("btnDisconnect").disabled=false;
+    // Watchdog: >12 s keine Daten -> Verbindung hart neu aufbauen (gegen hängende Reconnects)
+    esWatchdog=setInterval(()=>{
+      if(Date.now()-esLastData>12000){ esReconnects++; esLastData=Date.now(); wlanOpen(); }
+    },4000);
+    // Gesundheitsanzeige (jede Sekunde): zeigt über Stunden, ob es ohne Abriss läuft
+    esHealth=setInterval(()=>{
+      const ago=Math.round((Date.now()-esLastData)/1000);
+      const live=ago<=10;
+      document.getElementById("dot").classList.toggle("on",live);
+      const up=Math.round((Date.now()-esConnStart)/60000);
+      document.getElementById("status").textContent =
+        (live?"WLAN verbunden":"WLAN — warte auf Daten")+" · "+esHost+
+        " · letzte Daten vor "+ago+" s · seit "+up+" min · Reconnects "+esReconnects+
+        (esMaxGap>2000?(" · größte Lücke "+Math.round(esMaxGap/1000)+" s"):"");
+    },1000);
+  }catch(err){ document.getElementById("status").textContent="WLAN-Fehler: "+err.message; }
+}
+function disconnectWlan(){ wlanCleanup(); document.getElementById("dot").classList.remove("on"); document.getElementById("status").textContent="getrennt"; }
+
+/* ---------- Demo + Paste + Export ---------- */
+let demoSeq=0;
+function demoTick(){ const t=Date.now()/60000;
+  addRecord({device_id:"demo",schema_version:1,timestamp:new Date().toISOString().replace(/\.\d+Z/,"Z"),seq:demoSeq++,
+    soil_moisture_raw:Math.round(3200+50*Math.sin(t)), soil_temp_c:+(20+3*Math.sin(t/3)).toFixed(2),
+    water_level_raw:0, rain:false, rain_intensity_raw:4095,
+    air_temp_c:+(22+4*Math.sin(t/2)).toFixed(2), humidity_pct:+(50+10*Math.cos(t/2)).toFixed(1),
+    dewpoint_c:+(11+3*Math.sin(t/2.5)).toFixed(2), pressure_hpa:+(1013+5*Math.sin(t/5)).toFixed(1),
+    uv_raw:Math.round(200+150*Math.max(0,Math.sin(t/4))), lux:+(800+500*Math.max(0,Math.sin(t/4))).toFixed(1),
+    color_rgb:[Math.round(2000+500*Math.sin(t)),1600,1500], noise_rel:+(150+80*Math.random()).toFixed(1),
+    gas_raw: demoSeq<3 ? null : Math.round(600+100*Math.sin(t)) }); }
+function toggleDemo(){ if(demoTimer){ clearInterval(demoTimer); demoTimer=null; document.getElementById("btnDemo").textContent="▶ Demo"; }
+  else { demoTimer=setInterval(demoTick,1000); demoTick(); document.getElementById("btnDemo").textContent="⏸ Demo"; } }
+
+function exportJSON(){ download("umweltmonitor_"+stamp()+".json", JSON.stringify(records,null,1), "application/json"); }
+function exportCSV(){
+  if(!records.length){ alert("Keine Daten."); return; }
+  const cols=FIELD_ORDER;
+  const head=cols.join(",");
+  const rows=records.map(r=>cols.map(c=>{ let v=r[c];
+    if(v==null) return ""; if(Array.isArray(v)) return '"'+v.join("|")+'"';
+    if(typeof v==="string"&&/[,"]/.test(v)) return '"'+v.replace(/"/g,'""')+'"'; return v; }).join(","));
+  download("umweltmonitor_"+stamp()+".csv", head+"\n"+rows.join("\n"), "text/csv");
+}
+function stamp(){ return new Date().toISOString().replace(/[:T]/g,"-").slice(0,19); }
+function download(name,data,type){ const b=new Blob([data],{type}); const u=URL.createObjectURL(b);
+  const a=document.createElement("a"); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),2000); }
+
+/* ---------- Wiring ---------- */
+buildStatic(); render(); renderNoise(); renderLight();
+document.getElementById("clock").textContent=new Date().toLocaleString("de-DE");
+setInterval(()=>document.getElementById("clock").textContent=new Date().toLocaleString("de-DE"),1000);
+document.getElementById("serialHint").textContent = ("serial" in navigator) ? "" : "⚠ Web Serial nur in Chrome/Edge";
+document.getElementById("btnConnect").onclick=connect;
+document.getElementById("btnWlan").onclick=connectWlan;
+document.getElementById("btnDisconnect").onclick=()=>{ disconnect(); disconnectWlan(); };
+document.getElementById("btnDemo").onclick=toggleDemo;
+document.getElementById("btnCsv").onclick=exportCSV;
+document.getElementById("btnJson").onclick=exportJSON;
+document.getElementById("btnClear").onclick=()=>{ records.length=0; badLines=0; render(); };
+const pa=document.getElementById("pasteArea");
+document.getElementById("btnPaste").onclick=()=>{ pa.style.display=pa.style.display==="block"?"none":"block"; pa.focus(); };
+pa.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); handleLine(pa.value.trim()); pa.value=""; } });
+</script>
+</body>
+</html>

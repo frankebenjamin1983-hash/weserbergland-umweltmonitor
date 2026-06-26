@@ -1,0 +1,22 @@
+# Wegwerf-Debug-Sketches (I²C-Fehlersuche)
+firmware/test_blink/
+firmware/test_i2c_*/
+
+# Secrets niemals committen
+secrets.h
+*.key
+
+# Arduino-Build-Artefakte
+build/
+*.elf
+*.bin
+*.hex
+
+# OS-Müll
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Interne Tooling-/Planungsartefakte (kein Deliverable)
+.hermes/
+.claude/

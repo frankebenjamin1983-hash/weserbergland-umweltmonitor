@@ -1,0 +1,31 @@
+UmweltMonitor-Basismodul — Pinout (ESP32-D0WD NodeMCU, 30-Pin)
+Stand 2026-06-25. Versorgung: 5 V an VIN. Am laufenden Board verifiziert.
+
+ANALOG (ADC1 — auch bei aktivem WLAN nutzbar)
+  GPIO36 (VP)   HW-390      Bodenfeuchte (AOUT)              3V3
+  GPIO39 (VN)   HW-038      Wasserstand/Nässe (S)            3V3
+  GPIO34        MAX9814     Schallpegel (OUT)                3V3
+  GPIO35        MiCS-5524   Gas (AO; ggf. 10k/10k-Teiler)    5V
+  GPIO32        GUVA-S12SD  UV (OUT)                         3V3
+  GPIO33        Raindrop    Regen-Intensität (AO)            3V3
+
+DIGITAL
+  GPIO27        Raindrop    Regen ja/nein (DO)               3V3
+  GPIO26        MiCS-5524   Heizer-Enable (EN, HIGH = an)    —
+
+I2C-0  (GPIO21 = SDA / GPIO22 = SCL)   externe Pull-ups 4,7–10k an 3V3
+  0x38   AHT20      Temp/Feuchte
+  0x77   BMP280     Druck          << VERIFIZIERT 0x77 (NICHT 0x76!)
+  0x29   TCS34725   Farbe/Helligkeit
+  0x48   TMP102     Bodentemperatur
+
+I2C-1  (GPIO18 = SDA / GPIO19 = SCL)
+  0x29   TSL2591    Lux (HDR)       (eigener Bus wegen 0x29-Konflikt mit TCS34725)
+
+RESERVIERT / FREI LASSEN
+  GPIO1 / GPIO3 (TX0 / RX0)  =  USB-Seriell (Panel-Live + Flashen) — nicht belegen.
+
+Hinweise
+  - ADC2-Pins sind bei aktivem WLAN gesperrt -> Analog nur über ADC1 (oben).
+  - HW-038 / Raindrop korrodieren bei Dauerstrom -> nur zur Messung bestromen.
+  - TMP102 + Bodenfeuchte ins Erdreich (gekabelt), TMP102 wasserdicht vergießen.
