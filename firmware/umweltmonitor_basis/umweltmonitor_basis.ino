@@ -15,7 +15,7 @@
  *    I2C Bus1(18/19): TSL2591 0x29
  *
  *  Bibliotheken: Adafruit AHTX0, Adafruit BMP280, Adafruit TCS34725,
- *                Adafruit TSL2591, Adafruit BusIO/Unified Sensor.
+ *                Adafruit TSL2591, Adafruit FRAM I2C, Adafruit BusIO/Unified Sensor.
  *                (TMP102 wird direkt per I2C gelesen, keine Extra-Lib.)
  */
 
@@ -34,6 +34,10 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_TCS34725.h>
 #include <Adafruit_TSL2591.h>
+#include <Adafruit_FRAM_I2C.h>
+#include <Adafruit_ST7789.h>
+#include <Adafruit_GFX.h>
+#include <SPI.h>
 
 // ---------- Pins ----------
 #define PIN_SOIL   36   // HW-390 AOUT  (ADC1)
@@ -49,6 +53,12 @@
 #define I2C1_SDA 18
 #define I2C1_SCL 19
 #define TMP102_ADDR 0x48
+#define TFT_SCK  14
+#define TFT_MOSI 13
+#define TFT_CS   25   // GPIO25 statt GPIO15 (Strapping-Pin gemieden)
+#define TFT_DC   16   // GPIO16 statt GPIO2  (Strapping-Pin gemieden)
+#define TFT_RST   4
+#define TFT_BL   17   // BL: prüfen ob direkt oder über Transistor (GPIO-Limit 40 mA)
 
 // ---------- Konfig ----------
 const uint32_t SEND_INTERVAL_MS = 60UL * 1000;   // ~1 min
@@ -64,6 +74,10 @@ Adafruit_AHTX0   aht;
 Adafruit_BMP280  bmp(&I2C0);
 Adafruit_TCS34725 tcs(TCS34725_INTEGRATIONTIME_154MS, TCS34725_GAIN_1X);
 Adafruit_TSL2591 tsl(2591);
+Adafruit_FRAM_I2C fram;
+SPIClass hspi(HSPI);
+Adafruit_ST7789 tft = Adafruit_ST7789(&hspi, TFT_CS, TFT_DC, TFT_RST);
+bool tftOK = false;
 Preferences prefs;
 WiFiServer sseServer(80);   // Live-Stream ueber WLAN (Server-Sent Events)
 WiFiClient sseClient;       // genau ein Panel-Client
@@ -71,7 +85,8 @@ WiFiClient sseClient;       // genau ein Panel-Client
 String wifiSsid, wifiPass, n8nUrl, hmacKey, caCert;
 uint32_t seqCounter = 0;
 uint32_t bootMillis = 0;
-bool ahtOK = false, bmpOK = false, tcsOK = false, tslOK = false, tmpOK = false;  // Sensor-Presence
+bool ahtOK = false, bmpOK = false, tcsOK = false, tslOK = false, tmpOK = false;
+bool framOK = false;
 volatile bool wifiDisconnected = false;   // asynchron von WiFi-Event-Handler gesetzt
 bool mdnsActive = false;                  // true wenn mDNS läuft (wird bei Disconnect/Reconnect zurückgesetzt)
 
@@ -173,11 +188,30 @@ void loadSecrets() {                   // einmalig per Provisioning in NVS schre
   n8nUrl   = prefs.getString("url",  "");
   hmacKey  = prefs.getString("hmac", "");
   caCert   = prefs.getString("ca",   LE_ROOT_CA);
-  seqCounter = prefs.getUInt("seq", 0);
+  seqCounter = prefs.getUInt("seq", 0);  // Fallback-Wert; FRAM überschreibt unten falls vorhanden
   prefs.end();
 }
 
-void saveSeq() { prefs.begin("um", false); prefs.putUInt("seq", seqCounter); prefs.end(); }
+void framLoadSeq() {
+  uint32_t magic = 0;
+  fram.read(0x0000, (uint8_t*)&magic, 4);
+  if (magic == 0xDEADBEEF) {
+    fram.read(0x0004, (uint8_t*)&seqCounter, 4);
+    Serial.printf("FRAM: seq=%lu geladen\n", seqCounter);
+  } else {
+    Serial.println(F("FRAM: kein Magic -> seq aus NVS behalten"));
+  }
+}
+
+void saveSeq() {
+  if (framOK) {
+    uint32_t magic = 0xDEADBEEF;
+    fram.write(0x0000, (uint8_t*)&magic, 4);
+    fram.write(0x0004, (uint8_t*)&seqCounter, 4);
+  } else {
+    prefs.begin("um", false); prefs.putUInt("seq", seqCounter); prefs.end();
+  }
+}
 
 bool connectWifi() {
   // Nicht-blockierend: startet WiFi.begin() und kehrt sofort zurück.
@@ -221,6 +255,66 @@ bool i2cPresent(TwoWire& bus, uint8_t addr) {
 }
 
 // WLAN-Live-Stream (SSE): neuen Browser-Client annehmen + SSE-Header senden.
+void tftShow(float airTemp, float airHum, float dewp, float press,
+             float lux, int uvRaw, bool wlanOK, int8_t rssi,
+             uint32_t seq, bool framActive, uint16_t colVar) {
+  if (!tftOK) return;
+  tft.fillScreen(ST77XX_BLACK);
+
+  // --- Temp (sehr groß) ---
+  tft.setTextSize(3);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.setCursor(0, 4);
+  if (!isnan(airTemp)) tft.printf("%.1fC", airTemp); else tft.print("--.-C");
+
+  // --- Feuchte (sehr groß, cyan) ---
+  tft.setTextColor(ST77XX_CYAN);
+  tft.setCursor(0, 32);
+  if (!isnan(airHum)) tft.printf("%.0f%%rH", airHum); else tft.print("-- %rH");
+
+  tft.drawFastHLine(0, 62, 172, 0x39E7);
+
+  // --- Taupunkt + Druck ---
+  tft.setTextSize(2);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.setCursor(0, 66);
+  if (!isnan(dewp))  tft.printf("TP %.1fC", dewp);  else tft.print("TP --.-C");
+  tft.setCursor(0, 86);
+  if (!isnan(press)) tft.printf("%.1f hPa", press); else tft.print("-- hPa");
+
+  // --- Lux (groß) ---
+  tft.setTextSize(2);
+  tft.setTextColor(0xFFE0);
+  tft.setCursor(0, 110);
+  if (lux >= 0) tft.printf("%.1f lx", lux); else tft.print("-- lx");
+
+  // --- UV-Einstrahlung (groß) ---
+  tft.setCursor(0, 130);
+  tft.setTextColor(0xF81F);  // violett
+  tft.printf("UV %d  dV:%u", uvRaw, colVar);
+
+  tft.drawFastHLine(0, 150, 172, 0x39E7);
+
+  // --- FRAM + WLAN ---
+  tft.setTextSize(2);
+  tft.setCursor(0, 154);
+  tft.setTextColor(framActive ? ST77XX_GREEN : ST77XX_RED);
+  tft.print(framActive ? "FR OK" : "FR --");
+  tft.setTextColor(0x7BEF);
+  tft.printf(" #%lu", seq);
+
+  tft.setCursor(0, 174);
+  tft.setTextColor(wlanOK ? ST77XX_GREEN : ST77XX_RED);
+  tft.print(wlanOK ? "WL OK" : "WL --");
+  if (wlanOK) { tft.setTextColor(0x7BEF); tft.printf(" %ddB", rssi); }
+
+  // --- Uptime ---
+  tft.setCursor(0, 198);
+  tft.setTextColor(0x7BEF);
+  uint32_t up = (millis() - bootMillis) / 1000;
+  tft.printf("UP %luh%02lum", up / 3600, (up % 3600) / 60);
+}
+
 void sseAccept() {
   WiFiClient c = sseServer.accept();
   if (c) {
@@ -239,6 +333,19 @@ void sseSend(const char* line) {
 void setup() {
   Serial.begin(115200); delay(300);
   Serial.println(F("\nUmweltmonitor-Basismodul v1 (Entwurf)"));
+  // Reset-Grund (wichtig für Dauertest-Diagnose: Brownout vs. Watchdog vs. Kaltstart)
+  esp_reset_reason_t rr = esp_reset_reason();
+  Serial.printf("RESET-GRUND: %d (%s)\n",
+    rr,
+    rr==ESP_RST_POWERON  ? "POWERON/BROWNOUT" :
+    rr==ESP_RST_SW       ? "SW_RESET"         :
+    rr==ESP_RST_PANIC    ? "PANIC/EXCEPTION"  :
+    rr==ESP_RST_INT_WDT  ? "INT_WATCHDOG"     :
+    rr==ESP_RST_TASK_WDT ? "TASK_WATCHDOG"    :
+    rr==ESP_RST_WDT      ? "WDT_SONSTIG"      :
+    rr==ESP_RST_BROWNOUT ? "BROWNOUT"         :
+    rr==ESP_RST_SDIO     ? "SDIO"             : "UNBEKANNT");
+  Serial.flush();
 
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
   esp_task_wdt_config_t wdt_cfg = { .timeout_ms = (uint32_t)WDT_TIMEOUT_S * 1000, .idle_core_mask = 0, .trigger_panic = true };
@@ -266,15 +373,25 @@ void setup() {
   bmpOK = i2cPresent(I2C0, 0x77) && bmp.begin(0x77);   // Modul real auf 0x77 (Doku sagte 0x76)
   tcsOK = i2cPresent(I2C0, 0x29) && tcs.begin(0x29, &I2C0);
   tslOK = i2cPresent(I2C1, 0x29) && tsl.begin(&I2C1);
-  tmpOK = i2cPresent(I2C0, TMP102_ADDR);   // TMP102 wird direkt gelesen, kein Lib-begin noetig
+  tmpOK  = i2cPresent(I2C0, TMP102_ADDR);   // TMP102 wird direkt gelesen, kein Lib-begin noetig
+  framOK = i2cPresent(I2C0, 0x50) && fram.begin(0x50, &I2C0);
   if (!ahtOK) Serial.println(F("WARN: AHT20 (0x38) nicht aktiv"));
-  if (!bmpOK) Serial.println(F("WARN: BMP280 (0x76) nicht aktiv"));
+  if (!bmpOK) Serial.println(F("WARN: BMP280 (0x77) nicht aktiv"));
   if (!tcsOK) Serial.println(F("WARN: TCS34725 (0x29) nicht aktiv"));
   if (!tslOK) Serial.println(F("WARN: TSL2591 (0x29/Bus1) nicht aktiv"));
-  if (!tmpOK) Serial.println(F("WARN: TMP102 (0x48) nicht aktiv"));
+  if (!tmpOK)  Serial.println(F("WARN: TMP102 (0x48) nicht aktiv"));
+  if (!framOK) Serial.println(F("WARN: FRAM (0x50) nicht aktiv"));
+  hspi.begin(TFT_SCK, -1, TFT_MOSI, TFT_CS);
+  pinMode(TFT_BL, OUTPUT); digitalWrite(TFT_BL, HIGH);
+  tft.init(172, 320);
+  tft.setRotation(1);
+  tft.fillScreen(ST77XX_BLACK);
+  tftOK = true;
   Serial.println(F("CK3: Sensoren gescannt")); Serial.flush();
+  Serial.println(F("CK3b: TFT initialisiert")); Serial.flush();
 
   loadSecrets();
+  if (framOK) framLoadSeq();
 
   // WiFi-Härtung: AutoReconnect VOR begin() setzen (sonst wirkt es erst nach nächstem Reboot).
   // Modem-Sleep AUS → stabiler SSE-Server, weniger Drops/Stottern.
@@ -386,30 +503,47 @@ bool sendPayload(const String& body) {
 void loop() {
   esp_task_wdt_reset();
 
-  // WiFi-Health-Check (nicht-blockierend, alle 30 s oder bei asynchronem Disconnect-Flag)
+  // WiFi-Health-Check (alle 30 s oder bei asynchronem Disconnect-Flag)
+  // Nach 10 erfolglosen Checks (~5 min) -> ESP.restart() als letztes Mittel.
   static uint32_t lastWifiCheck = 0;
+  static uint8_t  wifiFailCount  = 0;
   if (millis() - lastWifiCheck >= 30000 || wifiDisconnected) {
-    lastWifiCheck = millis();
+    lastWifiCheck    = millis();
+    wifiDisconnected = false;
     if (WiFi.status() != WL_CONNECTED) {
-      Serial.println(F("WLAN-Wiederverbindung..."));
-      if (connectWifi()) {
-        // SSE-Server und mDNS nach Reconnect neu starten (neue IP möglich)
+      wifiFailCount++;
+      Serial.printf("WLAN-Trennung #%u\n", wifiFailCount);
+      if (wifiFailCount >= 10) {
+        Serial.println(F("WLAN 5 min nicht erreichbar -> Neustart"));
+        Serial.flush();
+        ESP.restart();
+      }
+      // WiFi.begin() nur einmal nach erstem Disconnect, danach AutoReconnect übernimmt.
+      if (wifiFailCount == 1) {
+        WiFi.disconnect(false);
+        WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
+      }
+    } else {
+      if (wifiFailCount > 0) {
+        wifiFailCount = 0;
+        // SSE-Server und mDNS nach Reconnect sicherstellen (neue IP möglich)
         if (!sseServer) sseServer.begin();
-        if (mdnsActive) { MDNS.end(); }
+        if (mdnsActive) MDNS.end();
         if (MDNS.begin("umweltmonitor")) {
           mdnsActive = true;
           Serial.println(F("mDNS neu registriert"));
         } else {
           mdnsActive = false;
-          Serial.println(F("mDNS-Neustart fehlgeschlagen"));
         }
-        Serial.print(F("WLAN-IP: ")); Serial.println(WiFi.localIP());
+        Serial.print(F("WLAN wiederverbunden, IP: ")); Serial.println(WiFi.localIP());
       }
     }
   }
 
   sseAccept();                       // neue WLAN-Stream-Clients annehmen
   static uint32_t last = 0, lastNoise = 0, lastLight = 0;
+  static uint16_t lastR = 0, lastG = 0, lastB = 0, colVar = 0;
+  static uint16_t curR = 0, curG = 0, curB = 0;
   uint32_t now = millis();
 
   // Echtzeit-Lärm ~5 Hz: "N:<rms>" (Serial + WLAN-SSE; NICHT im POST -> kein Sheet-Spam).
@@ -419,13 +553,17 @@ void loop() {
     Serial.println(nb); sseSend(nb);
   }
 
-  // Echtzeit-Licht ~2 Hz: "L:<lux>,<uv_raw>,<r>,<g>,<b>" (lux=-1 falls kein TSL).
+  // Echtzeit-Licht ~2 Hz: "L:<lux>,<uv_raw>,<r>,<g>,<b>,<dV>" (lux=-1 falls kein TSL).
   if (now - lastLight >= 500) {
     lastLight = now;
     float lux = -1; uint16_t r = 0, g = 0, b = 0, c = 0;
     if (tslOK) { uint32_t lum = tsl.getFullLuminosity(); lux = tsl.calculateLux(lum & 0xFFFF, lum >> 16); }
     if (tcsOK) tcs.getRawData(&r, &g, &b, &c);
-    char lb[48]; snprintf(lb, sizeof(lb), "L:%.1f,%d,%u,%u,%u", lux, avgRead(PIN_UV), r, g, b);
+    // Farbvarianz: Summe der Absolutbeträge der Kanaldeltas zum Vorwert
+    colVar = (uint16_t)(abs((int)r - lastR) + abs((int)g - lastG) + abs((int)b - lastB));
+    lastR = r; lastG = g; lastB = b;
+    curR = r; curG = g; curB = b;
+    char lb[56]; snprintf(lb, sizeof(lb), "L:%.1f,%d,%u,%u,%u,%u", lux, avgRead(PIN_UV), r, g, b, colVar);
     Serial.println(lb); sseSend(lb);
   }
 
@@ -433,7 +571,19 @@ void loop() {
     last = now;
     String body = buildPayload();
     Serial.println(body); sseSend(body.c_str());
-    if (sendPayload(body)) { seqCounter++; saveSeq(); }   // seq nur bei Erfolg hoch (monoton, Replay-Schutz)
+    bool posted = sendPayload(body);
+    if (posted) { seqCounter++; saveSeq(); }   // seq nur bei Erfolg hoch (monoton, Replay-Schutz)
+    if (tftOK) {
+      float dTemp = NAN, dHum = NAN, dDewp = NAN, dPress = NAN, dLux = -1;
+      int   dUV = 0;
+      if (ahtOK) { sensors_event_t hum, tmp; aht.getEvent(&hum, &tmp); dTemp = tmp.temperature; dHum = hum.relative_humidity; dDewp = dewPointC(dTemp, dHum); }
+      if (bmpOK) dPress = bmp.readPressure() / 100.0f;
+      if (tslOK) { uint32_t lum = tsl.getFullLuminosity(); dLux = tsl.calculateLux(lum & 0xFFFF, lum >> 16); }
+      dUV = avgRead(PIN_UV);
+      tftShow(dTemp, dHum, dDewp, dPress, dLux, dUV,
+              WiFi.status() == WL_CONNECTED, (int8_t)WiFi.RSSI(),
+              seqCounter, framOK, colVar);
+    }
   }
   delay(20);
 }

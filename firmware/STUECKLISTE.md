@@ -16,12 +16,14 @@ Board: ESP32-D0WD NodeMCU (30 Pin). Versorgung: 5-V-Netzteil an VIN. Alle Sensor
 | 9 | **TCS34725** | 1 | Farbe/Helligkeit | IO21/IO22 | I²C-0 · 0x29 | 3V3 | LED→GND (Bord-LED aus), INT offen |
 | 10 | **TMP102** | 1 | Bodentemperatur | IO21/IO22 | I²C-0 · 0x48 | 3V3 | ADD0→GND (=0x48), ALT offen; **abdichten** fürs Erdreich |
 | 11 | **TSL2591** | 1 | Lux (HDR) | IO18/IO19 | I²C-1 · 0x29 | 3V3 | eigener Bus (0x29-Konflikt mit TCS) |
-| 12 | **Widerstand 10 kΩ** | 2 | MiCS-AO-Teiler (5V→2,5V) | an IO35 | — | — | Pin-Schutz; nur falls AO >3,3 V |
-| 13 | **5-V-Netzteil** | 1 | Versorgung | VIN/GND | — | — | muss MiCS-Heizerstrom mitliefern (~30–80 mA) |
-| 14 | Kabel/Stecker, Gehäuse, Bodensonden-Kabel | n. B. | Aufbau | — | — | — | TMP102 + Bodenfeuchte ins Erdreich (gekabelt) |
+| 12 | **MB85RC256V FRAM** | 1 | Persistenz (seq-Zähler, Ringpuffer) | IO21/IO22 | I²C-0 · **0x50** | 3V3 | 32 KB; 10¹³ Schreibzyklen; A0/A1/A2 → GND |
+| 13 | **ST7789 1.47" TFT** | 1 | Display (Temp/Feuchte/Lux/WLAN) | GPIO13/14/25/16/4/17 | SPI-HSPI | 3V3 | 172×320 px; CS=25 DC=16 (Strapping-Pins GPIO15/2 gemieden) |
+| 14 | **Widerstand 10 kΩ** | 2 | MiCS-AO-Teiler (5V→2,5V) | an IO35 | — | — | Pin-Schutz; nur falls AO >3,3 V |
+| 14 | **5-V-Netzteil** | 1 | Versorgung | VIN/GND | — | — | muss MiCS-Heizerstrom mitliefern (~30–80 mA) |
+| 15 | Kabel/Stecker, Gehäuse, Bodensonden-Kabel | n. B. | Aufbau | — | — | — | TMP102 + Bodenfeuchte ins Erdreich (gekabelt) |
 
 ## I²C-Übersicht
-- **Bus 0 (IO21/IO22):** AHT20 0x38 · BMP280 **0x77** · TCS34725 0x29 · TMP102 0x48
+- **Bus 0 (IO21/IO22):** AHT20 0x38 · BMP280 **0x77** · TCS34725 0x29 · TMP102 0x48 · **MB85RC256V FRAM 0x50**
 - **Bus 1 (IO18/IO19):** TSL2591 0x29
 
 ## Was NICHT verbaut ist (zur Klarstellung)

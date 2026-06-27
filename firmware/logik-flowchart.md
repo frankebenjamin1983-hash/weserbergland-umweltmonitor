@@ -6,8 +6,8 @@ Stand 2026-06-25: inkl. **Echtzeit-Streams** (`N:`/`L:`) und **WLAN-Live-Stream 
 ```mermaid
 flowchart TD
   A(["Power-On / Reset"]) --> B["setup: ADC, GPIO, I2C Bus0 21/22 + Bus1 18/19"]
-  B --> C["Sensoren init + Presence-Gate: AHT20, BMP280 @0x77, TCS34725, TSL2591, TMP102"]
-  C --> D["MiCS-EN HIGH, Watchdog 30s, NVS-Secrets laden"]
+  B --> C["Sensoren init + Presence-Gate: AHT20, BMP280 @0x77, TCS34725, TSL2591, TMP102, FRAM @0x50"]
+  C --> D["MiCS-EN HIGH, Watchdog 30s, NVS-Secrets laden, seq aus FRAM (Fallback NVS)"]
   D --> E["WLAN + NTP"]
   E --> F["setSleep(false) + AutoReconnect, SSE-Server :80 + mDNS"]
   F --> G(["loop()"])
