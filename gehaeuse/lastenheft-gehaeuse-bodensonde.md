@@ -1,6 +1,6 @@
 # Lastenheft — Gehäuse & Bodensonde (Umweltmonitor Kalletal)
 
-Kennzeichnung: **M** = Muss, **S** = Soll, **K** = Kann. Stand 2026-06-25.
+Kennzeichnung: **M** = Muss, **S** = Soll, **K** = Kann. Stand 2026-06-27.
 
 ## 1. Zweck & Rahmen
 Anforderungen an (A) das Gehäuse des fest installierten ESP32-Umweltmonitors und (B) die abgesetzte,
@@ -32,7 +32,18 @@ gekabelte Bodensonde. Ziel: zuverlässiger Dauer-Außenbetrieb (Weserbergland), 
 - S: MiCS (Gas) + MAX9814 (Schall) an freier Luft, weg von Eigenabwärme; Mikrofon mit Wind-/Spritzschutz.
 - M: Raindrop-Platte regenexponiert und ablaufend (kein Stauwasser).
 
-### 2.6 Durchführung / Montage / Service
+### 2.6 Display (TFT ST7789 1.47")
+- M: TFT-Display **von außen ablesbar** ohne Öffnung; klares, UV-beständiges Frontfenster (PC/PMMA).
+- M: Fenster regendicht eingeklebt oder gedichtet; kein Stauwasser vor dem Display.
+- S: Ablesbarkeit bei direkter Sonne (Display-Helligkeit + Beschattung durch Gehäuseüberstand).
+- K: Gehäuseausschnitt passgenau für das Modul-Footprint (GMT147SPI: ca. 35 × 55 mm Platine).
+- Hinweis: Display-Anschlüsse SPI-HSPI (SCK=14, MOSI=13, CS=25, DC=16, RST=4, BL=17); BL direkt auf HIGH, kein PWM-Dimmer nötig.
+
+### 2.7 FRAM (MB85RC256V)
+- K: FRAM ist I²C-Modul auf der Hauptplatine (Breakout, ~15 × 10 mm); kein Gehäuseausschnitt nötig.
+- M: kein direkter Feuchte-/Kondensatkontakt — im dichten Elektronikfach untergebracht.
+
+### 2.8 Durchführung / Montage / Service
 - M: abgedichtete Kabelverschraubungen für Bodensonde + 5-V-Zuleitung.
 - M: Mastmontage, windstabil; Luftmessung ~1,25–2 m über (Gras-)Boden, Abstand zu Wänden/Wärmeinseln.
 - M: USB-Port ohne Demontage erreichbar (Flashen vor Ort) — abgedichtete Serviceklappe.
@@ -55,5 +66,6 @@ gekabelte Bodensonde. Ziel: zuverlässiger Dauer-Außenbetrieb (Weserbergland), 
 - Thermik: Luftsensor-Offset gegen Referenz < 1 K bei Sonne/Betrieb.
 - Belüftung: Taupunkt innen ≈ außen (Innen-Luft folgt Außen-Luft).
 - Bodensonde: nach Wässerungstest dicht, plausible Feuchte/Temperatur.
+- Display: von außen ablesbar, Fenster dicht, bei Sonne lesbar.
 - Service: Flashen ohne Gehäuseöffnung möglich.
 - Langzeit: nach Testzeitraum kein Wasser-/Korrosionsbefund (Sichtprüfung).
