@@ -1,38 +1,73 @@
-# Anschlussliste — Umweltmonitor-Basismodul (30-Pin NodeMCU-ESP32)
+# Anschlussliste — Umweltmonitor-Basismodul
 
-Maßgebliche Verdrahtungsquelle. Board: ESP32-D0WD NodeMCU, 30 Pin. Alle Sensoren = Breakout-Module
-→ Pull-ups intern (keine externen), außer MiCS-AO-Teiler.
+Board: ESP32-D0WD NodeMCU 30-Pin. Versorgung: 5 V an VIN. Stand: 2026-06-27.
 
 ## Versorgung
-- **VIN ← 5 V Netzteil** (Board-Regler **und** MiCS-Heizer).
-- **3V3 (Board-Pin)** → VCC/VIN aller Sensoren außer MiCS-Heizer.
-- **GND** → gemeinsame Masse.
 
-## I²C-Busse
-- **Bus 0 = IO21 (SDA) / IO22 (SCL):** AHT20+BMP280-Combo (0x38 + 0x76) · TCS34725 (0x29) · TMP102 (0x48)
-- **Bus 1 = IO18 (SDA) / IO19 (SCL):** TSL2591 (0x29)
+| Von | Nach | Hinweis |
+|-----|------|---------|
+| Netzteil 5 V | VIN + GND | trägt MiCS-Heizer mit (~30–80 mA) |
+| Board 3V3 | VCC aller Sensoren außer MiCS | — |
+| GND | gemeinsame Masse | — |
 
-## Module (alle Pins)
-| Modul | Pin | → Ziel |
-|---|---|---|
-| **HW-390** Bodenfeuchte | AOUT / VCC / GND | **IO36** / 3V3 / GND |
-| **HW-038** Wasserstand | S / VCC / GND | **IO39** / 3V3 / GND |
-| **MAX9814** Schall | OUT / GAIN / A/R / VDD / GND | **IO34** / **GND (50 dB)** / offen / 3V3 / GND |
-| **MiCS-5524** Gas (CO) | AO / EN / VCC / GND | **IO35** (über Teiler 10k/10k) / **IO26** / **5V** / GND |
-| **GUVA-S12SD** UV | OUT / VCC / GND | **IO32** / 3V3 / GND |
-| **Raindrop** Regen | DO / AO / VCC / GND | **IO27** / **IO33** (Intensität) / 3V3 / GND |
-| **AHT20+BMP280 Combo** (Bus 0) | SDA / SCL / VIN / GND | **IO21** / **IO22** / **3V3** / GND |
-| **TCS34725** RGB (Bus 0) | SDA / SCL / LED / INT / VIN / GND | **IO21** / **IO22** / **GND (LED aus)** / offen / **3V3** / GND |
-| **TMP102** Bodentemp (Bus 0, gekabelt) | SDA / SCL / VIN / GND / ADD0 / ALT | **IO21** / **IO22** / **3V3** / GND / **GND (→0x48)** / offen |
-| **TSL2591** Lux (Bus 1) | SDA / SCL / INT / VIN / GND | **IO18** / **IO19** / offen / **3V3** / GND |
+## I²C-Bus 0 — GPIO21 (SDA) / GPIO22 (SCL)
 
-## Frei / nicht belegen
-- Frei nutzbar: **IO4**, IO23, IO25, IO14, IO13, IO16, IO17.
-- **TX0/RX0 (IO1/IO3):** USB-Seriell — nicht belegen.
-- Strapping (Boot-Pegel beachten): IO12, IO5, IO2, IO15.
+| Modul | Adresse | Pins am Modul |
+|-------|---------|---------------|
+| AHT20 + BMP280 Combo | 0x38 + **0x77** | SDA/SCL/VCC/GND |
+| TCS34725 | 0x29 | SDA/SCL/VCC/GND (LED→GND) |
+| TMP102 | 0x48 | SDA/SCL/VCC/GND (ADD0→GND) |
+| MB85RC256V FRAM | 0x50 | SDA/SCL/VCC/GND (A0/A1/A2→GND, WP→GND) |
+
+> BMP280 verifiziert auf **0x77** (nicht 0x76).
+
+## I²C-Bus 1 — GPIO18 (SDA) / GPIO19 (SCL)
+
+| Modul | Adresse | Grund |
+|-------|---------|-------|
+| TSL2591 | 0x29 | 0x29-Konflikt mit TCS34725 → eigener Bus |
+
+## SPI-HSPI — ST7789 1.47" TFT
+
+| Signal | GPIO | Hinweis |
+|--------|------|---------|
+| SCK | 14 | — |
+| MOSI | 13 | — |
+| CS | **25** | GPIO15 gemieden (Strapping-Pin) |
+| DC | **16** | GPIO2 gemieden (Strapping-Pin + Onboard-LED) |
+| RST | 4 | — |
+| BL | 17 | Backlight; prüfen ob Transistor nötig (GPIO-Limit 40 mA) |
+| VCC | 3V3 | — |
+| GND | GND | — |
+
+## Analog (ADC1)
+
+| Modul | GPIO | Signal | Versorgung |
+|-------|------|--------|------------|
+| HW-390 Bodenfeuchte | 36 | AOUT | 3V3 |
+| HW-038 Wasserstand | 39 | S | 3V3 |
+| MAX9814 Schall | 34 | OUT (GAIN→GND = 50 dB) | 3V3 |
+| MiCS-5524 Gas | 35 | AO (ggf. 10k/10k-Teiler wenn >3,3 V) | **5 V** |
+| GUVA-S12SD UV | 32 | OUT | 3V3 |
+| Raindrop AO | 33 | AO (Intensität) | 3V3 |
+
+## Digital
+
+| Modul | GPIO | Signal | Richtung |
+|-------|------|--------|----------|
+| Raindrop DO | 27 | DO (LOW = nass, LM393 open-collector) | IN PULLUP |
+| MiCS-5524 EN | 26 | Enable (HIGH = Heizer an) | OUT |
+
+## Reserviert
+
+| GPIO | Funktion |
+|------|----------|
+| 1 (TX0) | USB-Serial — nicht belegen |
+| 3 (RX0) | USB-Serial — nicht belegen |
 
 ## Hinweise
-- **MiCS-AO:** AO an 5V kann >3,3 V → Spannungsteiler **10k/10k** (max 2,5 V) vor IO35.
-- **EN-Polarität** am MiCS prüfen (HIGH = an angenommen).
-- **TMP102 nicht wasserdicht** → für Boden vergießen/abdichten.
-- **DS18B20** ist nicht Teil des Aufbaus (war nur ein Vorschlag).
+
+- ADC2-Pins bei aktivem WLAN gesperrt → nur ADC1 (GPIO32–39) verwenden.
+- HW-038 und Raindrop korrodieren bei Dauerstrom → bei Gelegenheit auf Schaltung umstellen.
+- TMP102 für Bodeneinsatz wasserdicht vergießen (Epoxid o.ä.).
+- MiCS-5524: AO-Spannung zuerst messen, Teiler nur wenn >3,3 V.
