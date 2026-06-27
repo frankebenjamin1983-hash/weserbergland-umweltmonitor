@@ -1,110 +1,151 @@
-# Umweltmonitor (Kalletal-Erder) — WetterStudioTeam
+# UmweltMonitor — Weserbergland
 
-> 🚧 **Work in Progress** — aktiver Aufbau & Dauertest. Pinbelegung, Datenvertrag und Schnittstellen können sich noch ändern. „Fertig" gilt nur, was im Testplan mit Beleg abgehakt ist (`bewiesen vs. vermutet`).
+ESP32-Außenumweltmonitor. Sendet Messdaten per HTTPS an n8n → Google Sheet,
+streamt live per SSE (WLAN) und USB-Serial an das Web-Panel.
 
-ESP32-Umweltmonitor für den Außeneinsatz. Eigene Pipeline, die später denselben
-Datenfluss wie die bestehende Wetterstation „Erder" speist. **EM-Sonden / Elektrosmog
-sind ein separates Schwesterprojekt** (eigener Ordner, hier NICHT enthalten).
-
-Dieser Ordner enthält die **self-contained Prompts** für je einen frischen Chat
-(Firmware bzw. Gehäuse/Standort) plus die hier festgelegten Entscheidungen.
+Stand: 2026-06-27 — Gerät läuft autonom, alle Stufen aktiv.
 
 ---
 
-## Entschieden (Design / Bauteile, Stand 2026-06-24) — NICHT eigenmächtig ändern
+## Hardware
 
-### MCU & Analog-Frontend
-- **MCU: ESP32-D (WROOM-32, WiFi + Bluetooth)** — vom Nutzer gewählt (2026-06-24): BT (Classic+BLE)
-  verfügbar, Dual-Core, **8 ADC1-Kanäle (mit WLAN nutzbar)**. **Bewusste Abweichung** von der
-  C3-Stations-Basis. Folgen: mehr Strom/Wärme als C3; WiFi+BT-Coexistence belastet Funk/RAM
-  (für die reine Datenübertragung reicht WLAN → BT nur für lokale Konfig/Readout).
-- **Analog-Frontend: ADS1115 jetzt OPTIONAL** — der ESP32-D hat genug native ADC1-Kanäle für alle
-  Analogsensoren. Siehe [`firmware/belegungsplan-und-entwurf.md`](firmware/belegungsplan-und-entwurf.md):
-  - **Variante A (nativ, empfohlen):** alle Analogsensoren am ESP32-ADC1, kein ADS1115.
-  - **Variante B (hybrid):** ADS1115 nur für GUVA/MiCS (16-bit + PGA, kleine Signale feiner).
-  - Entscheidung offen.
+| Bauteil | Funktion | Anschluss |
+|---------|----------|-----------|
+| ESP32-D0WD NodeMCU (30-Pin) | MCU + WLAN | — |
+| AHT20 + BMP280 (Combo) | Temp / Feuchte / Druck | I²C-0 0x38 + 0x77 |
+| TCS34725 | Farbe / RGB | I²C-0 0x29 |
+| TSL2591 | Lux HDR | I²C-1 0x29 |
+| TMP102 | Bodentemperatur | I²C-0 0x48 |
+| MB85RC256V FRAM | Persistenz (seq, Ringpuffer) | I²C-0 0x50 |
+| ST7789 1.47" TFT | Display (Temp/Feuchte/Lux/UV/Status) | SPI-HSPI |
+| HW-390 | Bodenfeuchte | GPIO36 ADC1 |
+| HW-038 | Wasserstand / Nässe | GPIO39 ADC1 |
+| Raindrop (LM393) | Regen DO + AO | GPIO27 / GPIO33 |
+| MAX9814 | Schallpegel | GPIO34 ADC1 |
+| MiCS-5524 | Gas (CO / brennbar) | GPIO35 ADC1 + GPIO26 EN |
+| GUVA-S12SD | UV | GPIO32 ADC1 |
 
-### Architektur & Sensorbestückung
-**Konsolidiert (2026-06-24):** ein ESP32-D trägt **Stations-Sensoren + Umweltsensoren** und
-ersetzt den alten C3. Die **Stations-Sensoren sind unten noch NICHT erfasst** (Liste/Pins offen
-→ Belegungsplan/Pinout daher noch unvollständig). Der Datenvertrag führt beide Feldsätze zusammen.
+Versorgung: 5 V an VIN. Alle Sensoren = Breakout-Module (Pull-ups intern).
 
-**Stations-Sensoren (übernommen, ein Board ersetzt den C3):** AHT20 (Temp/Feuchte, I²C 0x38) ·
-BMP280 (Druck, I²C **0x77** — verifiziert, nicht 0x76) · LCD16x2 (I²C 0x27, optional — „Display entfernt"). *(DHT22 aus der
-AntiWetter-README ist im aktuellen Build nicht enthalten.)*
-→ Frost-Sperre des Servos nutzt die AHT20-Temperatur. **Eigenerwärmung wieder relevant** (Board misst
-Lufttemp/-feuchte und der ESP32-D heizt mehr als der C3).
-
-**I²C-Aufteilung:** Bus 0 (GPIO21/22) = AHT20 / BMP280 / TCS34725 / LCD; **Bus 1 (GPIO18/19) = TSL2591**
-(0x29-Konflikt gelöst, Entscheidung (a)).
-
-Umweltsensoren (zusätzlich zur Station, fix):
-| Sensor | Messgröße | Bus / ADC-Weg | Einheit | Vorbehalt |
-|---|---|---|---|---|
-| HW-390 (kapazitiv v2.0) | Bodenfeuchte | analog → ADS1115 | % rel. | Ausgang spannungsabhängig → stabile 3,3 V / ratiometrisch, kalibrieren |
-| HW-038 | Wasserstand/Nässe | analog → ADS1115 | rel. Pegel | Leitfähigkeitstyp → **korrodiert bei Dauerstrom** → nur zur Messung bestromen |
-| Raindrop (LM393, AO+DO) | Regen jetzt + Intensität | digital DO an GPIO (alt. AO) | Index | **kein** mm; korrodiert → nur zur Messung bestromen |
-| MAX9814 | Schallpegel | analog → **native C3-ADC** | rel. dB | Audio-Wellenform → schnelles Sampling + RMS; dB(A) nur kalibriert |
-| MiCS-5524 | Gas (CO / brennbar / VOC) | analog → ADS1115 | rel. | MOS + **Heizer (Stromfresser + Warmup)**; nur indikativ, kalibrieren |
-| GUVA-S12SD | UV | analog → ADS1115 | UV-Index n. Kennlinie | Modulausgang ~0–1 V (klein) |
-| TCS34725 | Farbe (RGB+Clear) | I²C (0x29) | RGB | kein Präzisions-Lux, kein UV |
-| TSL2591 | Helligkeit (Lux, HDR) | I²C (0x29) | Lux | **Adresskonflikt 0x29 mit TCS34725** → 2. I²C-Bus / Mux / eins weglassen |
-
-### Aktorik
-- **Servo SG90 9g** zum Leeren des Regenbehälters → macht **Regenmenge (mm) messbar**:
-  `mm = (Anzahl Leerungen × Dump-Volumen) / Fangfläche` (1 mm = 1 L/m²), **nach Kalibrierung**
-  von Fangfläche und Dump-Volumen. Raindrop-Sensor bleibt daneben (Sofort-Detektion).
-- 1× PWM-GPIO (ESP32 LEDC). **Eigene 5-V-Versorgung + Stützkondensator + gemeinsame Masse**
-  (Anlauf-/Stall-Strom ~0,5–0,7 A → sonst Brownout). PWM mit 3,3-V-Logik geht praktisch.
-- SG90 **nicht wetterfest** → schützen oder wasserfeste MG90-Variante; Mechanik balanciert
-  auslegen (geringes Drehmoment ~1,8 kg·cm); **Frost-Sperre** in der Firmware.
-
-### Funk
-- **ESP-NOW** ist erste Wahl für verteilte Sensor-Nodes (peer-to-peer, ohne Router,
-  stromsparend, läuft auf C3) → Gateway-ESP32 sammelt + POSTet an n8n.
-- **WiFi** nur, wenn jeder Knoten autark direkt an n8n senden soll (höchster Verbrauch).
-- **BLE** nur für gelegentliches Handy-Auslesen/Provisioning. **BT Classic: nein.**
-- Offen: ein verkabelter Aufbau vs. verteilte Nodes — entscheidet der Gehäuse/Standort-Chat
-  (Platzkonflikte: UV→Himmel, Mic/Gas→freie Luft, Boden/Wasser/Regen→Erdboden).
-
-### Datenweg (von der Wetterstation geerbt — 1:1 übernehmen, nicht ändern)
-- ESP32-C3, Messintervall ~10 min → POST an n8n `https://<N8N_HOST>`.
-- Google Sheet „<SHEET_DOC>", Tab der Station: `<SHEET_TAB>`.
-- Live-Webhook `…/webhook/wetter-latest`; bestehende Android-/Windows-Widgets.
-- **Stolperfallen der Station:** n8n übernimmt Änderungen nur per UI-„Save" (direkte
-  DB-Edits werden ignoriert); das Sheets-Secret = das Gmail-Secret.
-- **Offen:** selbes Sheet (eigener Tab) vs. eigenes Sheet + eigener Webhook — entscheidet
-  der Firmware-Chat.
+→ Vollständige Pinbelegung: [`pinout.txt`](pinout.txt)
+→ Stückliste mit I²C-Adressen: [`firmware/STUECKLISTE.md`](firmware/STUECKLISTE.md)
 
 ---
 
-## Noch zu verifizieren (Messung / Kalibrierung) — NICHT als bewiesen behandeln
-Diese Punkte sind **Annahmen/Designvorgaben, kein Messbeweis** — erst am lebenden System bzw.
-nach Kalibrierung bestätigen (Prinzip „fertig = verifiziert"):
-- **MiCS-5524 misst CO / brennbare Gase / VOC — KEIN CO₂, kein NDIR.** Im Datensatz **nicht**
-  „co2" nennen → `gas_raw` (relativ, kalibrierpflichtig). Es gibt **keinen** CO₂-Sensor im Set.
-- **Schall = relativer Pegel**, nicht dB SPL/dB(A) → `sound_level_rel`, nicht `db_spl`.
-- **Bodenfeuchte, UV-Index, Regen-mm** erst nach Kalibrierung absolut; vorher `*_raw/_rel`.
-- **Belegungsplan/Pins** hängen am realen C3-Board (ADC2 bei WLAN gesperrt → native Analogpins
-  nur ADC1) → konkrete GPIO-Nummern erst nach Board-Bestätigung.
+## Firmware-Architektur
+
+**Zwei Datenwege parallel:**
+
+- **Pfad A — signierter HTTPS-POST → n8n (1×/min):**
+  HMAC-SHA256 über den JSON-Body, CA-geprüftes HTTPS (ISRG Root X1).
+  `seq` steigt nur bei HTTP 2xx (monoton, Replay-Schutz).
+  Secrets in NVS provisioniert.
+
+- **Pfad B — lokaler Live-Stream (Echtzeit):**
+  USB-Serial + WLAN-SSE (Port 80, `umweltmonitor.local`).
+  `N:<rms>` ~5 Hz (Schall), `L:<lux>,<uv>,<r>,<g>,<b>,<dV>` ~2 Hz, JSON 1×/min.
+  Ungesichert — nur für lokales WLAN.
+
+**Persistenz:**
+- FRAM (MB85RC256V): seq-Zähler + Magic 0xDEADBEEF. Überlebt Reboot ohne NVS-Schreibzyklus.
+- NVS (Preferences): Fallback wenn kein FRAM.
+
+**WLAN-Watchdog:**
+Prüft alle 30 s. Nach 5 min ohne WLAN → `ESP.restart()`.
+Disconnect-Grund wird geloggt (Grund-Code + Klartext).
+
+**Reset-Grund-Logging:**
+`esp_reset_reason()` bei jedem Boot → Serial: POWERON / BROWNOUT / PANIC / WATCHDOG etc.
+
+**Display (ST7789 TFT):**
+Aktualisierung 1×/min nach jedem Messzyklus.
+Zeigt: Temp · Feuchte · Taupunkt · Druck · Lux · UV · dV (Lichtdynamik) · FRAM-Status · WLAN+RSSI · Uptime.
+
+→ Logik-Flussdiagramm: [`firmware/logik-flowchart.md`](firmware/logik-flowchart.md)
 
 ---
 
-## Dateien / Prompts
-- [`firmware/belegungsplan-und-entwurf.md`](firmware/belegungsplan-und-entwurf.md) — Belegungsplan (ESP32-D) + Firmware-Entwurf.
-- [`firmware/STUECKLISTE.md`](firmware/STUECKLISTE.md) — Stückliste (BOM) mit Pins & I²C-Adressen.
-- [`pinout.txt`](pinout.txt) — kompakte Pinbelegung.
-- [`firmware/logik-flowchart.md`](firmware/logik-flowchart.md) — Logik-Flussdiagramm (Mermaid: Sensoren → Streams/SSE/POST → Panel/n8n).
-- [`panel/umweltmonitor_panel.html`](panel/umweltmonitor_panel.html) — Live-Daten-Panel (Web Serial + WLAN).
-- [`firmware/TESTPLAN.md`](firmware/TESTPLAN.md) — Testplan (Phase 0): Erfolgssignale je Kanal/Servo/Datenweg.
-- [`prompts/firmware-prompt.md`](prompts/firmware-prompt.md) — Firmware-Prompt für frischen Chat (⚠ nennt noch ESP32-C3 → vor Nutzung auf ESP32-D + Belegungsplan-Variante syncen).
-- [`prompts/gehaeuse-standort-prompt.md`](prompts/gehaeuse-standort-prompt.md) — Gehäuse/Standort-Prompt (⚠ nennt noch ESP32-C3).
+## Pinout (Kurzform)
 
-Jeder Prompt ist self-contained für einen frischen Chat. Beide verlangen: **Testplan
-(`TESTPLAN.md`) vor dem Tun**, **bewiesen vs. vermutet strikt trennen**, festgelegte
-Werte nicht eigenmächtig ändern, Dateien unter diesem Projektpfad ablegen.
+```
+I²C-0 (GPIO21/22): AHT20 · BMP280 · TCS34725 · TMP102 · FRAM
+I²C-1 (GPIO18/19): TSL2591
+SPI-HSPI TFT:  SCK=14  MOSI=13  CS=25  DC=16  RST=4  BL=17
+ADC1: GPIO36 Boden · GPIO39 Wasser · GPIO34 Schall · GPIO35 Gas · GPIO32 UV · GPIO33 Regen
+Digital: GPIO27 Regen-DO · GPIO26 MiCS-EN
+Strapping-Pins gemieden: GPIO2 (→DC=16), GPIO15 (→CS=25)
+```
 
-**Doku-Status (2026-06-24):** README + Belegungsplan auf **ESP32-D** aktuell; TESTPLAN angelegt
-(alle Einträge offen). Die beiden Prompts referenzieren noch ESP32-C3 → werden synchronisiert,
-sobald die offenen Entscheidungen (ADS1115 A/B, Frost-Temp-Quelle, BT-Rolle, Deep-Sleep,
-Zeitstempel) getroffen sind.
+---
+
+## Datenvertrag (JSON, 1×/min)
+
+```json
+{
+  "device_id": "umweltmonitor_basis_01",
+  "schema_version": 1,
+  "timestamp": "2026-06-27T...",
+  "seq": 847,
+  "soil_moisture_raw": 2100,
+  "soil_temp_c": 21.5,
+  "water_level_raw": 0,
+  "rain": false,
+  "rain_intensity_raw": 3900,
+  "air_temp_c": 22.3,
+  "humidity_pct": 58.1,
+  "dewpoint_c": 13.9,
+  "pressure_hpa": 1013.2,
+  "uv_raw": 0,
+  "lux": 496.3,
+  "color_rgb": [1172, 894, 833],
+  "noise_rel": 42.1,
+  "gas_raw": null
+}
+```
+
+`gas_raw=null` die ersten 3 min (MiCS-Warmup). Alle Werte ohne Kalibrierung = relativ/raw.
+
+---
+
+## Sicherheit
+
+- Secrets (SSID, Pass, HMAC-Key, n8n-URL) ausschließlich in NVS — nie im Code.
+- n8n-Endpunkt in Doku redaktiert: `<N8N_HOST>`.
+- Sheet-Namen redaktiert: `<SHEET_DOC>` / `<SHEET_TAB>`.
+- HTTPS CA-geprüft (ISRG Root X1, kein `setInsecure()`).
+
+→ Details: [`SICHERHEITSARCHITEKTUR.md`](SICHERHEITSARCHITEKTUR.md)
+
+---
+
+## Dateien
+
+| Datei | Inhalt |
+|-------|--------|
+| [`pinout.txt`](pinout.txt) | Vollständige GPIO-Belegung |
+| [`firmware/STUECKLISTE.md`](firmware/STUECKLISTE.md) | BOM mit I²C-Adressen und Pins |
+| [`firmware/logik-flowchart.md`](firmware/logik-flowchart.md) | Mermaid-Flussdiagramm |
+| [`firmware/umweltmonitor_basis/`](firmware/umweltmonitor_basis/) | Arduino-Sketch |
+| [`panel/umweltmonitor_panel.html`](panel/umweltmonitor_panel.html) | Web-Panel (Serial + WLAN-SSE) |
+| [`firmware/TESTPLAN.md`](firmware/TESTPLAN.md) | Testplan mit Abnahmekriterien |
+| [`ABNAHME-STAND.md`](ABNAHME-STAND.md) | Aktueller Verifikationsstand |
+| [`SICHERHEITSARCHITEKTUR.md`](SICHERHEITSARCHITEKTUR.md) | Sicherheitskonzept |
+| [`leistungsbudget.md`](leistungsbudget.md) | Stromverbrauchsschätzung |
+
+---
+
+## Status
+
+| Komponente | Status |
+|-----------|--------|
+| Firmware kompiliert + geflasht | ✓ |
+| WLAN-Verbindung + SSE-Stream | ✓ |
+| Alle Sensoren aktiv (7×) | ✓ |
+| FRAM aktiv (seq persistent) | ✓ |
+| TFT-Display aktiv | ✓ |
+| WLAN-Watchdog + Reset-Log | ✓ |
+| n8n Pfad A (HTTPS-POST) | offen — Secrets-Provisioning + SSH-Freigabe nötig |
+| Dauertest 24h | offen |
+
+> **Bewiesen ≠ vermutet.** Alles ohne Beleg in der Tabelle = Vermutung oder Design-Annahme.
+> Kalibrierung (Bodenfeuchte, UV-Index, Gas, Schall-dB) steht noch aus.
