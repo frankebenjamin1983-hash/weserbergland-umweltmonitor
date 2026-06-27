@@ -30,7 +30,7 @@ gekabelte Bodensonde. Ziel: zuverlässiger Dauer-Außenbetrieb (Weserbergland), 
 
 ### 2.5 Gas / Schall / Regen
 - S: MiCS (Gas) + MAX9814 (Schall) an freier Luft, weg von Eigenabwärme; Mikrofon mit Wind-/Spritzschutz.
-- M: Raindrop-Platte regenexponiert und ablaufend (kein Stauwasser).
+- M: Raindrop-Platte regenexponiert, **Neigungswinkel 15–45°** damit Wasser frei abfließt (kein Stauwasser, kein Pooling auf den Leiterbahnen).
 
 ### 2.6 Display (TFT ST7789 1.47")
 - M: TFT-Display **von außen ablesbar** ohne Öffnung; klares, UV-beständiges Frontfenster (PC/PMMA).
